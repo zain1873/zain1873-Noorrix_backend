@@ -38,3 +38,25 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             name=validated_data['name'],
         )
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+    def save(self):
+        email = self.validated_data['email']
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = PasswordResetTokenGenerator().make_token(user)
+        reset_link = (
+            f'{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}'
+        )
+        send_mail(
+            subject='Password Reset Request',
+            message=f'Click the link below to reset your password:\n\n{reset_link}',
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+        )
