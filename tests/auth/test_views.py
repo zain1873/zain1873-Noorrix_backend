@@ -21,13 +21,16 @@ class TestRegisterView:
         assert 'password' not in response.data
 
     def test_register_creates_user_in_db(self, api_client):
-        api_client.post(reverse('auth-register'), {
+        response = api_client.post(reverse('auth-register'), {
             'name': 'John Smith',
             'email': 'john@example.com',
             'password': 'SecurePass123!',
             'confirm_password': 'SecurePass123!',
         })
+        assert response.status_code == 201
         assert User.objects.filter(email='john@example.com').exists()
+        user = User.objects.get(email='john@example.com')
+        assert user.check_password('SecurePass123!')
 
     def test_register_duplicate_email_returns_400(self, api_client, user):
         response = api_client.post(reverse('auth-register'), {
@@ -57,3 +60,13 @@ class TestRegisterView:
         })
         assert response.status_code == 400
         assert 'name' in response.data
+
+    def test_register_weak_password_returns_400(self, api_client):
+        response = api_client.post(reverse('auth-register'), {
+            'name': 'John Smith',
+            'email': 'john@example.com',
+            'password': 'password',
+            'confirm_password': 'password',
+        })
+        assert response.status_code == 400
+        assert 'password' in response.data
