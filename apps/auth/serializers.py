@@ -60,3 +60,36 @@ class PasswordResetSerializer(serializers.Serializer):
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
         )
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        try:
+            pk = force_str(urlsafe_base64_decode(attrs['uid']))
+            user = User.objects.get(pk=pk)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            raise serializers.ValidationError({'token': ['Invalid or expired token.']})
+
+        if not PasswordResetTokenGenerator().check_token(user, attrs['token']):
+            raise serializers.ValidationError({'token': ['Invalid or expired token.']})
+
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': ['Passwords do not match.']})
+
+        try:
+            validate_password(attrs['new_password'], user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({'new_password': list(e.messages)})
+
+        attrs['user'] = user
+        return attrs
+
+    def save(self):
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['new_password'])
+        user.save()

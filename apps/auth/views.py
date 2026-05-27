@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import RegisterSerializer, PasswordResetSerializer
+from .serializers import RegisterSerializer, PasswordResetSerializer, PasswordResetConfirmSerializer
 
 
 class RegisterView(generics.CreateAPIView):
@@ -23,4 +23,10 @@ class PasswordResetView(APIView):
 
 
 class PasswordResetConfirmView(APIView):
-    pass
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({'detail': 'Password has been reset successfully.'})

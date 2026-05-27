@@ -138,3 +138,76 @@ class TestPasswordResetView:
         assert len(mail.outbox) == 1
         assert 'user@example.com' in mail.outbox[0].to
         assert 'reset-password' in mail.outbox[0].body
+
+
+@pytest.mark.django_db
+class TestPasswordResetConfirmView:
+    def _get_uid_token(self, user):
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = PasswordResetTokenGenerator().make_token(user)
+        return uid, token
+
+    def test_confirm_valid_token_resets_password(self, api_client, user):
+        uid, token = self._get_uid_token(user)
+        response = api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': uid,
+            'token': token,
+            'new_password': 'NewSecure456!',
+            'confirm_password': 'NewSecure456!',
+        })
+        assert response.status_code == 200
+        assert response.data['detail'] == 'Password has been reset successfully.'
+        user.refresh_from_db()
+        assert user.check_password('NewSecure456!')
+
+    def test_confirm_invalid_token_returns_400(self, api_client, user):
+        uid, _ = self._get_uid_token(user)
+        response = api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': uid,
+            'token': 'invalid-token',
+            'new_password': 'NewSecure456!',
+            'confirm_password': 'NewSecure456!',
+        })
+        assert response.status_code == 400
+        assert 'token' in response.data
+
+    def test_confirm_invalid_uid_returns_400(self, api_client, user):
+        _, token = self._get_uid_token(user)
+        response = api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': 'invalid-uid',
+            'token': token,
+            'new_password': 'NewSecure456!',
+            'confirm_password': 'NewSecure456!',
+        })
+        assert response.status_code == 400
+        assert 'token' in response.data
+
+    def test_confirm_password_mismatch_returns_400(self, api_client, user):
+        uid, token = self._get_uid_token(user)
+        response = api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': uid,
+            'token': token,
+            'new_password': 'NewSecure456!',
+            'confirm_password': 'DifferentPass789!',
+        })
+        assert response.status_code == 400
+        assert 'confirm_password' in response.data
+
+    def test_confirm_token_invalidated_after_use(self, api_client, user):
+        uid, token = self._get_uid_token(user)
+        api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': uid,
+            'token': token,
+            'new_password': 'NewSecure456!',
+            'confirm_password': 'NewSecure456!',
+        })
+        response = api_client.post(reverse('auth-password-reset-confirm'), {
+            'uid': uid,
+            'token': token,
+            'new_password': 'AnotherPass789!',
+            'confirm_password': 'AnotherPass789!',
+        })
+        assert response.status_code == 400
