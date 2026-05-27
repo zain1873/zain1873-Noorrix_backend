@@ -1,3 +1,5 @@
+import binascii
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -72,7 +74,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             pk = force_str(urlsafe_base64_decode(attrs['uid']))
             user = User.objects.get(pk=pk)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        except (TypeError, ValueError, OverflowError, binascii.Error, User.DoesNotExist):
             raise serializers.ValidationError({'token': ['Invalid or expired token.']})
 
         if not PasswordResetTokenGenerator().check_token(user, attrs['token']):
