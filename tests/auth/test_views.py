@@ -211,3 +211,19 @@ class TestPasswordResetConfirmView:
             'confirm_password': 'AnotherPass789!',
         })
         assert response.status_code == 400
+
+
+@pytest.mark.django_db
+class TestTokenRefreshView:
+    def test_refresh_valid_token_returns_new_access(self, api_client, auth_tokens):
+        response = api_client.post(reverse('auth-token-refresh'), {
+            'refresh': auth_tokens['refresh'],
+        })
+        assert response.status_code == 200
+        assert 'access' in response.data
+
+    def test_refresh_invalid_token_returns_401(self, api_client):
+        response = api_client.post(reverse('auth-token-refresh'), {
+            'refresh': 'not-a-valid-token',
+        })
+        assert response.status_code == 401
