@@ -24,8 +24,9 @@ class TestUserModel:
         assert str(user) == 'test@example.com'
 
     def test_email_must_be_unique(self):
+        from django.db import IntegrityError
         User.objects.create_user(email='dup@example.com', password='Pass123!', name='A')
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             User.objects.create_user(email='dup@example.com', password='Pass123!', name='B')
 
     def test_create_superuser(self):
