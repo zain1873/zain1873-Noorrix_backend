@@ -1,6 +1,8 @@
 import pytest
-from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.core import mail
+from django.test import override_settings
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -122,6 +124,7 @@ class TestPasswordResetView:
             'email': 'nobody@example.com',
         })
         assert response.status_code == 200
+        assert 'detail' in response.data
 
     def test_reset_invalid_email_format_returns_400(self, api_client):
         response = api_client.post(reverse('auth-password-reset'), {
@@ -130,8 +133,6 @@ class TestPasswordResetView:
         assert response.status_code == 400
 
     def test_reset_known_email_sends_email(self, api_client, user):
-        from django.test import override_settings
-        from django.core import mail
         with override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend'):
             api_client.post(reverse('auth-password-reset'), {'email': 'user@example.com'})
         assert len(mail.outbox) == 1
