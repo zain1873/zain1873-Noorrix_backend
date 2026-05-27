@@ -70,3 +70,39 @@ class TestRegisterView:
         })
         assert response.status_code == 400
         assert 'password' in response.data
+
+
+@pytest.mark.django_db
+class TestLoginView:
+    def test_login_success_returns_tokens(self, api_client, user):
+        response = api_client.post(reverse('auth-token'), {
+            'email': 'user@example.com',
+            'password': 'TestPass123!',
+        })
+        assert response.status_code == 200
+        assert 'access' in response.data
+        assert 'refresh' in response.data
+
+    def test_login_wrong_password_returns_401(self, api_client, user):
+        response = api_client.post(reverse('auth-token'), {
+            'email': 'user@example.com',
+            'password': 'wrongpassword',
+        })
+        assert response.status_code == 401
+
+    def test_login_nonexistent_email_returns_401(self, api_client):
+        response = api_client.post(reverse('auth-token'), {
+            'email': 'nobody@example.com',
+            'password': 'TestPass123!',
+        })
+        assert response.status_code == 401
+
+    def test_login_inactive_user_returns_401(self, api_client, db):
+        inactive = User.objects.create_user(
+            email='inactive@example.com', password='TestPass123!', name='Inactive', is_active=False
+        )
+        response = api_client.post(reverse('auth-token'), {
+            'email': 'inactive@example.com',
+            'password': 'TestPass123!',
+        })
+        assert response.status_code == 401
