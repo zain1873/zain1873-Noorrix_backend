@@ -19,7 +19,7 @@ class PasswordResetView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         email = serializer.validated_data['email']
-        return Response({'detail': f'Password reset link sent to {email}.'})
+        return Response({'detail': f'If this email is registered, a reset link has been sent to {email}.'})
 
 
 class PasswordResetConfirmView(APIView):
