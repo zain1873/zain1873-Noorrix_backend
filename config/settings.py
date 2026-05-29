@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'apps.auth.apps.AuthConfig',
+    'apps.contact.apps.ContactConfig',
 ]
 
 MIDDLEWARE = [
