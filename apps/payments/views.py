@@ -246,12 +246,12 @@ class StripeWebhookView(APIView):
         obj = event["data"]["object"]
 
         if event_type == "checkout.session.completed":
-            # Only mark paid once Stripe confirms the funds (async methods may
-            # still be pending here and finish via async_payment_succeeded).
+            # Only treat as paid once Stripe confirms the funds (async methods
+            # may still be pending here and finish via async_payment_succeeded).
             if _safe_get(obj, "payment_status") == "paid":
-                self._set_status_by_reference(obj, Payment.Status.SUCCEEDED)
+                self._complete_checkout(obj)
         elif event_type == "checkout.session.async_payment_succeeded":
-            self._set_status_by_reference(obj, Payment.Status.SUCCEEDED)
+            self._complete_checkout(obj)
         elif event_type == "checkout.session.async_payment_failed":
             self._set_status_by_reference(obj, Payment.Status.FAILED)
         elif event_type == "checkout.session.expired":
@@ -268,28 +268,79 @@ class StripeWebhookView(APIView):
 
         return Response({"received": True}, status=status.HTTP_200_OK)
 
-    def _set_status_by_reference(self, session, new_status):
-        """Resolve a Payment from a Checkout Session and set its status."""
+    def _payment_for_session(self, session):
+        """Resolve our Payment from a Checkout Session's reference."""
         reference = _reference_from(session)
         if not reference:
             logger.warning("Checkout event without reference: %s", _safe_get(session, "id"))
-            return
+            return None
         try:
-            payment = Payment.objects.get(reference=reference)
+            return Payment.objects.get(reference=reference)
         except (Payment.DoesNotExist, ValidationError, ValueError):
             logger.warning("Checkout event for unknown reference %s", reference)
-            return
+            return None
 
+    def _set_status_by_reference(self, session, new_status):
+        """Set a Payment's status from a Checkout Session (failed / expired)."""
+        payment = self._payment_for_session(session)
+        if not payment:
+            return
         payment.status = new_status
         update_fields = ["status", "updated_at"]
-
-        # The PaymentIntent id may only become known once the session completes.
         intent_id = _safe_get(session, "payment_intent")
         if intent_id and not payment.stripe_payment_intent_id:
             payment.stripe_payment_intent_id = intent_id
             update_fields.append("stripe_payment_intent_id")
+        payment.save(update_fields=update_fields)
+
+    def _complete_checkout(self, session):
+        """Mark a checkout Payment succeeded and capture email + method.
+
+        The buyer's email and the method used aren't known until the session
+        completes: we read customer_details.email and retrieve the
+        PaymentIntent's charge for the actual method (card / paypal / …).
+        """
+        payment = self._payment_for_session(session)
+        if not payment:
+            return
+
+        payment.status = Payment.Status.SUCCEEDED
+        update_fields = ["status", "updated_at"]
+
+        details = _safe_get(session, "customer_details") or {}
+        email = _safe_get(details, "email") or _safe_get(session, "customer_email")
+        if email and not payment.customer_email:
+            payment.customer_email = email
+            update_fields.append("customer_email")
+
+        intent_id = _safe_get(session, "payment_intent")
+        if intent_id:
+            if not payment.stripe_payment_intent_id:
+                payment.stripe_payment_intent_id = intent_id
+                update_fields.append("stripe_payment_intent_id")
+            method = self._payment_method_from_intent(intent_id)
+            if method and not payment.payment_method:
+                payment.payment_method = method
+                update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+
+    @staticmethod
+    def _payment_method_from_intent(intent_id):
+        """Retrieve the actual method type used on a PaymentIntent's charge."""
+        try:
+            intent = stripe.PaymentIntent.retrieve(intent_id, expand=["latest_charge"])
+        except stripe.StripeError:
+            logger.exception("Could not retrieve PaymentIntent %s", intent_id)
+            return ""
+        charge = _safe_get(intent, "latest_charge")
+        if charge:
+            method_details = _safe_get(charge, "payment_method_details") or {}
+            method = _safe_get(method_details, "type")
+            if method:
+                return method
+        types = _safe_get(intent, "payment_method_types") or []
+        return types[0] if types else ""
 
     def _handle_refund(self, charge):
         """Mark a Payment refunded based on a charge.refunded event."""
@@ -314,31 +365,15 @@ class StripeWebhookView(APIView):
             logger.warning("Webhook for unknown PaymentIntent %s", intent_id)
             return
 
-        payment.status = STRIPE_STATUS_MAP.get(intent["status"], payment.status)
+        new_status = STRIPE_STATUS_MAP.get(intent["status"], payment.status)
+        payment.status = new_status
+        update_fields = ["status", "updated_at"]
 
-        method = self._extract_payment_method(intent)
-        if method:
-            payment.payment_method = method
+        # Only a successful intent has a charge to read the real method from.
+        if new_status == Payment.Status.SUCCEEDED and not payment.payment_method:
+            method = self._payment_method_from_intent(intent_id)
+            if method:
+                payment.payment_method = method
+                update_fields.append("payment_method")
 
-        payment.save(update_fields=["status", "payment_method", "updated_at"])
-
-    @staticmethod
-    def _extract_payment_method(intent):
-        """Best-effort read of the method type (card / paypal / …).
-
-        The PaymentIntent in a webhook may not include expanded charge details,
-        so every access is guarded. Falls back to payment_method_types.
-        """
-        try:
-            charges = intent["charges"]["data"]
-            if charges:
-                return charges[0]["payment_method_details"]["type"]
-        except (KeyError, TypeError, IndexError):
-            pass
-        try:
-            types = intent["payment_method_types"]
-            if types:
-                return types[0]
-        except (KeyError, TypeError, IndexError):
-            pass
-        return ""
+        payment.save(update_fields=update_fields)
