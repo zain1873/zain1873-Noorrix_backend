@@ -21,6 +21,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'apps.auth.apps.AuthConfig',
     'apps.contact.apps.ContactConfig',
+    'apps.payments.apps.PaymentsConfig',
 ]
 
 MIDDLEWARE = [
@@ -55,8 +56,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+        'NAME': config('DB_NAME', default='noorrix_db'),
+        'USER': config('DB_USER', default='postgres'),
+        'PASSWORD': config('DB_PASSWORD', default=''),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
     }
 }
 
@@ -104,6 +109,22 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@noorrix.com')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
+
+STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
+STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='')
+# Support multiple signing secrets (comma-separated) so several Stripe
+# destinations and/or the Stripe CLI can all be verified, e.g.
+# STRIPE_WEBHOOK_SECRET=whsec_aaa,whsec_bbb
+STRIPE_WEBHOOK_SECRETS = [s.strip() for s in STRIPE_WEBHOOK_SECRET.split(',') if s.strip()]
+STRIPE_CURRENCY = config('STRIPE_CURRENCY', default='gbp')
+# Origins permitted as Stripe Checkout success/cancel redirect targets. Anything
+# not in this allow-list is rejected to prevent open-redirect abuse.
+PAYMENT_REDIRECT_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in [FRONTEND_URL, *config('CORS_ALLOWED_ORIGINS', default='').split(',')]
+    if o.strip()
+]
 
 CORS_ALLOW_CREDENTIALS = True
 if DEBUG:
