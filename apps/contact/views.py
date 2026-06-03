@@ -3,9 +3,10 @@ from email.mime.image import MIMEImage
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 
 from .serializers import ContactSubmissionSerializer
@@ -89,6 +90,27 @@ HTML_TEMPLATE = """
 """
 
 
+@extend_schema(
+    tags=['Contact'],
+    summary='Submit a contact form',
+    request=ContactSubmissionSerializer,
+    responses={
+        201: inline_serializer(
+            name='ContactSubmissionSuccess',
+            fields={
+                'success': serializers.BooleanField(),
+                'message': serializers.CharField(),
+            },
+        ),
+        400: inline_serializer(
+            name='ContactSubmissionError',
+            fields={
+                'success': serializers.BooleanField(),
+                'errors': serializers.DictField(),
+            },
+        ),
+    },
+)
 class ContactSubmissionView(APIView):
     permission_classes = [AllowAny]
 
