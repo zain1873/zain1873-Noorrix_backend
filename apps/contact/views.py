@@ -157,9 +157,8 @@ class ContactSubmissionView(APIView):
 
         try:
             email.send(fail_silently=False)
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f"EMAIL SEND FAILED: {e}")
+        except Exception:
+            pass
 
         return Response(
             {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
