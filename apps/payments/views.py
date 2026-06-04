@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .emails import send_payment_confirmation
 from .models import Payment
 from .serializers import (
     CreateCheckoutSessionSerializer,
@@ -205,6 +206,50 @@ class PaymentDetailView(RetrieveAPIView):
     queryset = Payment.objects.all()
     lookup_field = "reference"
 
+    def get_object(self):
+        payment = super().get_object()
+        if payment.status in (Payment.Status.PENDING, Payment.Status.PROCESSING):
+            self._sync_from_stripe(payment)
+        return payment
+
+    @staticmethod
+    def _sync_from_stripe(payment):
+        try:
+            if payment.stripe_session_id:
+                session = stripe.checkout.Session.retrieve(payment.stripe_session_id)
+                if _safe_get(session, "payment_status") == "paid":
+                    update_fields = ["status", "updated_at"]
+                    payment.status = Payment.Status.SUCCEEDED
+
+                    details = _safe_get(session, "customer_details") or {}
+                    email = _safe_get(details, "email") or _safe_get(session, "customer_email")
+                    if email and not payment.customer_email:
+                        payment.customer_email = email
+                        update_fields.append("customer_email")
+
+                    intent_id = _safe_get(session, "payment_intent")
+                    if intent_id:
+                        if not payment.stripe_payment_intent_id:
+                            payment.stripe_payment_intent_id = intent_id
+                            update_fields.append("stripe_payment_intent_id")
+                        method = StripeWebhookView._payment_method_from_intent(intent_id)
+                        if method and not payment.payment_method:
+                            payment.payment_method = method
+                            update_fields.append("payment_method")
+
+                    payment.save(update_fields=update_fields)
+                    send_payment_confirmation(payment)
+
+            elif payment.stripe_payment_intent_id:
+                intent = stripe.PaymentIntent.retrieve(payment.stripe_payment_intent_id)
+                new_status = STRIPE_STATUS_MAP.get(_safe_get(intent, "status"), payment.status)
+                if new_status != payment.status:
+                    payment.status = new_status
+                    payment.save(update_fields=["status", "updated_at"])
+
+        except stripe.StripeError:
+            logger.exception("Could not sync payment %s from Stripe", payment.reference)
+
 
 class StripeWebhookView(APIView):
     """Receive Stripe webhooks and update payment status.
@@ -324,6 +369,7 @@ class StripeWebhookView(APIView):
                 update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+        send_payment_confirmation(payment)
 
     @staticmethod
     def _payment_method_from_intent(intent_id):
