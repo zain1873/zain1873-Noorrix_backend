@@ -57,16 +57,19 @@ class PasswordResetSerializer(serializers.Serializer):
         otp = f'{secrets.randbelow(1000000):06d}'
         PasswordResetOTP.objects.create(user=user, otp=otp)
 
-        send_mail(
-            subject='Password Reset OTP',
-            message=(
-                f'Your password reset OTP is: {otp}\n\n'
-                f'This OTP expires in {PasswordResetOTP.OTP_EXPIRY_MINUTES} minutes.\n\n'
-                'If you did not request a password reset, please ignore this email.'
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[email],
-        )
+        try:
+            send_mail(
+                subject='Password Reset OTP',
+                message=(
+                    f'Your password reset OTP is: {otp}\n\n'
+                    f'This OTP expires in {PasswordResetOTP.OTP_EXPIRY_MINUTES} minutes.\n\n'
+                    'If you did not request a password reset, please ignore this email.'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+            )
+        except Exception:
+            pass
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
