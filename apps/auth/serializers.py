@@ -68,8 +68,9 @@ class PasswordResetSerializer(serializers.Serializer):
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
             )
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"EMAIL SEND FAILED: {e}")
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
