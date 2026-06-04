@@ -58,18 +58,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 _database_url = config('DATABASE_URL', default=None)
 if _database_url:
-    DATABASES = {
-        'default': dj_database_url.parse(_database_url, conn_max_age=600, ssl_require=not DEBUG)
-    }
+    DATABASES = {'default': dj_database_url.parse(_database_url, conn_max_age=600)}
 else:
     DATABASES = {
         'default': {
-            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
-            'NAME': config('DB_NAME', default='noorrix_db'),
-            'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('DB_PASSWORD', default=''),
-            'HOST': config('DB_HOST', default='localhost'),
-            'PORT': config('DB_PORT', default='5432'),
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('PGDATABASE', default=config('DB_NAME', default='noorrix_db')),
+            'USER': config('PGUSER', default=config('DB_USER', default='postgres')),
+            'PASSWORD': config('PGPASSWORD', default=config('DB_PASSWORD', default='')),
+            'HOST': config('PGHOST', default=config('DB_HOST', default='localhost')),
+            'PORT': config('PGPORT', default=config('DB_PORT', default='5432')),
         }
     }
 
