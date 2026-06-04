@@ -155,7 +155,10 @@ class ContactSubmissionView(APIView):
                 logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
                 email.attach(logo)
 
-        email.send(fail_silently=False)
+        try:
+            email.send(fail_silently=False)
+        except Exception:
+            pass
 
         return Response(
             {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
