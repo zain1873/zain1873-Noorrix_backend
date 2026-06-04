@@ -1,9 +1,11 @@
 import logging
+import smtplib
+import socket
 from pathlib import Path
 from email.mime.image import MIMEImage
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import EmailMultiAlternatives, send_mail
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -167,3 +169,61 @@ class ContactSubmissionView(APIView):
             {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
             status=status.HTTP_201_CREATED,
         )
+
+
+class EmailTestView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        results = {
+            "config": {
+                "host": settings.EMAIL_HOST,
+                "port": settings.EMAIL_PORT,
+                "tls": settings.EMAIL_USE_TLS,
+                "ssl": settings.EMAIL_USE_SSL,
+                "user": settings.EMAIL_HOST_USER,
+                "from": settings.DEFAULT_FROM_EMAIL,
+            },
+            "tcp": None,
+            "smtp_auth": None,
+            "send": None,
+        }
+
+        # TCP test
+        try:
+            sock = socket.create_connection((settings.EMAIL_HOST, settings.EMAIL_PORT), timeout=10)
+            sock.close()
+            results["tcp"] = "OK"
+        except Exception as e:
+            results["tcp"] = f"FAILED: {e}"
+            return Response(results)
+
+        # SMTP auth test
+        try:
+            if settings.EMAIL_USE_SSL:
+                server = smtplib.SMTP_SSL(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=15)
+            else:
+                server = smtplib.SMTP(settings.EMAIL_HOST, settings.EMAIL_PORT, timeout=15)
+                if settings.EMAIL_USE_TLS:
+                    server.starttls()
+            server.login(settings.EMAIL_HOST_USER, settings.EMAIL_HOST_PASSWORD)
+            server.quit()
+            results["smtp_auth"] = "OK"
+        except Exception as e:
+            results["smtp_auth"] = f"FAILED: {e}"
+            return Response(results)
+
+        # Send test email
+        try:
+            send_mail(
+                subject="[Noorrix] Railway Email Test",
+                message="Test email from Railway — SMTP is working.",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[settings.EMAIL_HOST_USER],
+                fail_silently=False,
+            )
+            results["send"] = f"OK — check inbox/spam at {settings.EMAIL_HOST_USER}"
+        except Exception as e:
+            results["send"] = f"FAILED: {e}"
+
+        return Response(results)
