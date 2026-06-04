@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from email.mime.image import MIMEImage
 
@@ -8,6 +9,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
+
+logger = logging.getLogger(__name__)
 
 from .serializers import ContactSubmissionSerializer
 
@@ -157,8 +160,8 @@ class ContactSubmissionView(APIView):
 
         try:
             email.send(fail_silently=False)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error("Contact form email failed: %s", exc, exc_info=True)
 
         return Response(
             {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},

@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from django.conf import settings
@@ -6,6 +7,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from rest_framework import serializers
+
+logger = logging.getLogger(__name__)
 
 from .models import PasswordResetOTP
 
@@ -68,8 +71,8 @@ class PasswordResetSerializer(serializers.Serializer):
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[email],
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error("Password reset email failed for %s: %s", email, exc, exc_info=True)
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
