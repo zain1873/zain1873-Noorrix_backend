@@ -12,6 +12,7 @@ class Command(BaseCommand):
         password = os.environ.get('DJANGO_SUPERUSER_PASSWORD', '')
         name = os.environ.get('DJANGO_SUPERUSER_NAME', 'Admin')
 
+        password = password.strip()
         if not password:
             self.stdout.write('DJANGO_SUPERUSER_PASSWORD not set, skipping.')
             return
@@ -26,3 +27,4 @@ class Command(BaseCommand):
 
         action = 'Created' if created else 'Updated'
         self.stdout.write(f'{action} admin: {email}')
+        self.stdout.write(f'Password check: {user.check_password(password)}')
