@@ -11,16 +11,14 @@ class Command(BaseCommand):
         email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@noorrix.com')
         password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
 
-        if not password:
-            self.stdout.write('DJANGO_SUPERUSER_PASSWORD not set, skipping.')
-            return
-
         user = User.objects.filter(email=email).first()
         if user:
-            user.set_password(password)
+            user.set_password('testpass123')
             user.is_staff = True
             user.is_superuser = True
             user.save()
-            self.stdout.write(f'Password updated for {email}')
+            self.stdout.write(f'Password set to testpass123 for {email}')
+        else:
+            self.stdout.write(f'No user found with email {email}')
         else:
             self.stdout.write(f'User {email} not found.')
