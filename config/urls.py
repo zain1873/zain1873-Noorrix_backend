@@ -15,7 +15,33 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.auth import authenticate, get_user_model
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+import json
 from django.urls import path, include
+
+
+@csrf_exempt
+@require_POST
+def debug_auth(request):
+    data = json.loads(request.body)
+    email = data.get('email')
+    password = data.get('password')
+    User = get_user_model()
+    try:
+        user = User.objects.get(email=email)
+        return JsonResponse({
+            'user_exists': True,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'is_active': user.is_active,
+            'check_password': user.check_password(password),
+            'authenticate': str(authenticate(request, username=email, password=password)),
+        })
+    except User.DoesNotExist:
+        return JsonResponse({'user_exists': False})
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
@@ -23,6 +49,7 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
+    path('debug-auth/', debug_auth),
     path('admin/', admin.site.urls),
     path('api/v1/auth/', include('apps.auth.urls')),
     path('api/v1/payments/', include('apps.payments.urls')),
