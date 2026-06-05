@@ -9,7 +9,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         User = get_user_model()
         email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@noorrix.com')
-        password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
 
         user = User.objects.filter(email=email).first()
         if user:
@@ -20,5 +19,3 @@ class Command(BaseCommand):
             self.stdout.write(f'Password set to testpass123 for {email}')
         else:
             self.stdout.write(f'No user found with email {email}')
-        else:
-            self.stdout.write(f'User {email} not found.')
