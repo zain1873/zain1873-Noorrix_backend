@@ -1,4 +1,5 @@
 import logging
+import threading
 from pathlib import Path
 from email.mime.image import MIMEImage
 
@@ -195,6 +196,18 @@ class ContactSubmissionView(APIView):
 
         submission = serializer.save()
 
+        threading.Thread(target=self._send_emails, args=(submission,), daemon=True).start()
+
+        return Response(
+            {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def _send_emails(self, submission):
+        self._send_admin_email(submission)
+        self._send_confirmation_email(submission)
+
+    def _send_admin_email(self, submission):
         html_body = HTML_TEMPLATE.format(
             name=submission.name,
             email=submission.email,
@@ -202,7 +215,6 @@ class ContactSubmissionView(APIView):
             subject=submission.subject,
             message=submission.message.replace("\n", "<br>"),
         )
-
         plain_body = (
             f"Name:    {submission.name}\n"
             f"Email:   {submission.email}\n"
@@ -210,7 +222,6 @@ class ContactSubmissionView(APIView):
             f"Subject: {submission.subject}\n\n"
             f"Message:\n{submission.message}"
         )
-
         email = EmailMultiAlternatives(
             subject=f"[Contact Form] {submission.subject}",
             body=plain_body,
@@ -218,61 +229,43 @@ class ContactSubmissionView(APIView):
             to=[settings.EMAIL_HOST_USER],
         )
         email.attach_alternative(html_body, "text/html")
+        self._attach_logo(email)
+        try:
+            email.send(fail_silently=False)
+            logger.info("Admin notification sent for submission %s", submission.pk)
+        except Exception as exc:
+            logger.error("Admin email failed for submission %s: %s", submission.pk, exc, exc_info=True)
 
+    def _send_confirmation_email(self, submission):
+        html_body = CONFIRMATION_TEMPLATE.format(
+            name=submission.name,
+            subject=submission.subject,
+            message=submission.message.replace("\n", "<br>"),
+        )
+        plain_body = (
+            f"Hi {submission.name},\n\n"
+            f"Thank you for contacting Noorrix Motors. We've received your message "
+            f"regarding \"{submission.subject}\" and will get back to you shortly.\n\n"
+            f"Your message:\n{submission.message}"
+        )
+        email = EmailMultiAlternatives(
+            subject="We've received your message — Noorrix Motors",
+            body=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[submission.email],
+        )
+        email.attach_alternative(html_body, "text/html")
+        self._attach_logo(email)
+        try:
+            email.send(fail_silently=False)
+            logger.info("Confirmation sent to %s for submission %s", submission.email, submission.pk)
+        except Exception as exc:
+            logger.error("Confirmation email to %s failed for submission %s: %s", submission.email, submission.pk, exc, exc_info=True)
+
+    def _attach_logo(self, email):
         if LOGO_PATH.exists():
             with open(LOGO_PATH, "rb") as f:
                 logo = MIMEImage(f.read())
                 logo.add_header("Content-ID", "<noorrix_logo>")
                 logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
                 email.attach(logo)
-
-        admin_email_error = None
-        try:
-            email.send(fail_silently=False)
-        except Exception as exc:
-            admin_email_error = str(exc)
-            logger.error("Contact form email failed: %s", exc, exc_info=True)
-
-        confirmation_html = CONFIRMATION_TEMPLATE.format(
-            name=submission.name,
-            subject=submission.subject,
-            message=submission.message.replace("\n", "<br>"),
-        )
-        confirmation_plain = (
-            f"Hi {submission.name},\n\n"
-            f"Thank you for contacting Noorrix Motors. We've received your message "
-            f"regarding \"{submission.subject}\" and will get back to you shortly.\n\n"
-            f"Your message:\n{submission.message}"
-        )
-        confirmation_email = EmailMultiAlternatives(
-            subject="We've received your message — Noorrix Motors",
-            body=confirmation_plain,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[submission.email],
-        )
-        confirmation_email.attach_alternative(confirmation_html, "text/html")
-        if LOGO_PATH.exists():
-            with open(LOGO_PATH, "rb") as f:
-                logo = MIMEImage(f.read())
-                logo.add_header("Content-ID", "<noorrix_logo>")
-                logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
-                confirmation_email.attach(logo)
-        confirmation_email_error = None
-        try:
-            confirmation_email.send(fail_silently=False)
-        except Exception as exc:
-            confirmation_email_error = str(exc)
-            logger.error("Confirmation email to %s failed: %s", submission.email, exc, exc_info=True)
-
-        return Response(
-            {
-                "success": True,
-                "message": "Your message has been sent. We'll be in touch shortly.",
-                "_debug": {
-                    "admin_email_error": admin_email_error,
-                    "confirmation_email_error": confirmation_email_error,
-                    "confirmation_sent_to": submission.email,
-                },
-            },
-            status=status.HTTP_201_CREATED,
-        )

@@ -119,7 +119,7 @@ EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@noorrix.com')
-EMAIL_TIMEOUT = 30
+EMAIL_TIMEOUT = 10
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:3000')
 
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='')
@@ -162,7 +162,7 @@ LOGGING = {
     'loggers': {
         'apps': {
             'handlers': ['console'],
-            'level': 'ERROR',
+            'level': 'INFO',
             'propagate': False,
         },
         'django.request': {
