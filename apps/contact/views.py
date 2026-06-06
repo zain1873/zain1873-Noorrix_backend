@@ -226,9 +226,11 @@ class ContactSubmissionView(APIView):
                 logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
                 email.attach(logo)
 
+        admin_email_error = None
         try:
             email.send(fail_silently=False)
         except Exception as exc:
+            admin_email_error = str(exc)
             logger.error("Contact form email failed: %s", exc, exc_info=True)
 
         confirmation_html = CONFIRMATION_TEMPLATE.format(
@@ -255,12 +257,22 @@ class ContactSubmissionView(APIView):
                 logo.add_header("Content-ID", "<noorrix_logo>")
                 logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
                 confirmation_email.attach(logo)
+        confirmation_email_error = None
         try:
             confirmation_email.send(fail_silently=False)
         except Exception as exc:
+            confirmation_email_error = str(exc)
             logger.error("Confirmation email to %s failed: %s", submission.email, exc, exc_info=True)
 
         return Response(
-            {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
+            {
+                "success": True,
+                "message": "Your message has been sent. We'll be in touch shortly.",
+                "_debug": {
+                    "admin_email_error": admin_email_error,
+                    "confirmation_email_error": confirmation_email_error,
+                    "confirmation_sent_to": submission.email,
+                },
+            },
             status=status.HTTP_201_CREATED,
         )
