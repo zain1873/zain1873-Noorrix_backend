@@ -16,6 +16,74 @@ from .serializers import ContactSubmissionSerializer
 
 LOGO_PATH = Path(__file__).parent / "noorix_logo.jpg"
 
+CONFIRMATION_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+</head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:30px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#ac1c7a;padding:28px 40px;text-align:center;">
+              <img src="cid:noorrix_logo" alt="Noorrix Motors" style="max-height:60px;max-width:200px;" />
+            </td>
+          </tr>
+
+          <!-- Title -->
+          <tr>
+            <td style="padding:32px 40px 8px;text-align:center;">
+              <h2 style="margin:0;color:#ac1c7a;font-size:22px;">Thank You for Reaching Out!</h2>
+              <p style="margin:8px 0 0;color:#888;font-size:14px;">We've received your message and will get back to you shortly.</p>
+            </td>
+          </tr>
+
+          <!-- Summary -->
+          <tr>
+            <td style="padding:24px 40px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                <tr style="background:#f9f9f9;">
+                  <td style="padding:12px 16px;font-weight:bold;color:#555;font-size:14px;width:30%;border-bottom:1px solid #eee;">Name</td>
+                  <td style="padding:12px 16px;color:#222;font-size:14px;border-bottom:1px solid #eee;">{name}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-weight:bold;color:#555;font-size:14px;border-bottom:1px solid #eee;">Subject</td>
+                  <td style="padding:12px 16px;color:#222;font-size:14px;border-bottom:1px solid #eee;">{subject}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Message -->
+          <tr>
+            <td style="padding:0 40px 32px;">
+              <p style="margin:0 0 8px;font-weight:bold;color:#555;font-size:14px;">Your Message:</p>
+              <div style="background:#f9f9f9;border-left:4px solid #ac1c7a;padding:16px;border-radius:4px;color:#333;font-size:14px;line-height:1.6;">
+                {message}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#ac1c7a;padding:16px 40px;text-align:center;">
+              <p style="margin:0;color:#ffffff;font-size:12px;">&copy; Noorrix Motors &mdash; This is an automated confirmation. Please do not reply to this email.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -162,6 +230,35 @@ class ContactSubmissionView(APIView):
             email.send(fail_silently=False)
         except Exception as exc:
             logger.error("Contact form email failed: %s", exc, exc_info=True)
+
+        confirmation_html = CONFIRMATION_TEMPLATE.format(
+            name=submission.name,
+            subject=submission.subject,
+            message=submission.message.replace("\n", "<br>"),
+        )
+        confirmation_plain = (
+            f"Hi {submission.name},\n\n"
+            f"Thank you for contacting Noorrix Motors. We've received your message "
+            f"regarding \"{submission.subject}\" and will get back to you shortly.\n\n"
+            f"Your message:\n{submission.message}"
+        )
+        confirmation_email = EmailMultiAlternatives(
+            subject="We've received your message — Noorrix Motors",
+            body=confirmation_plain,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[submission.email],
+        )
+        confirmation_email.attach_alternative(confirmation_html, "text/html")
+        if LOGO_PATH.exists():
+            with open(LOGO_PATH, "rb") as f:
+                logo = MIMEImage(f.read())
+                logo.add_header("Content-ID", "<noorrix_logo>")
+                logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
+                confirmation_email.attach(logo)
+        try:
+            confirmation_email.send(fail_silently=False)
+        except Exception as exc:
+            logger.error("Confirmation email to %s failed: %s", submission.email, exc, exc_info=True)
 
         return Response(
             {"success": True, "message": "Your message has been sent. We'll be in touch shortly."},
