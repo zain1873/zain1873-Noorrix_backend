@@ -2,6 +2,6 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python manage.py migrate --no-input && python manage.py createsuperuser --noinput || true && python manage.py collectstatic --no-input && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+startCommand = "python manage.py migrate --no-input && python manage.py shell -c \"import os; from django.contrib.auth import get_user_model; U=get_user_model(); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@noorrix.com'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); n=os.environ.get('DJANGO_SUPERUSER_NAME','Admin'); u,_=U.objects.get_or_create(email=e, defaults={'name':n}); u.set_password(p); u.is_staff=True; u.is_superuser=True; u.is_active=True; u.save(); print('Admin ready:', e)\" && python manage.py collectstatic --no-input && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
