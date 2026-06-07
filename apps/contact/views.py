@@ -227,6 +227,7 @@ class ContactSubmissionView(APIView):
             body=plain_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[settings.EMAIL_HOST_USER],
+            reply_to=[submission.email],
         )
         email.attach_alternative(html_body, "text/html")
         self._attach_logo(email)
