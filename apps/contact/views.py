@@ -1,8 +1,5 @@
 import logging
 import threading
-from pathlib import Path
-from email.mime.image import MIMEImage
-
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -14,8 +11,6 @@ from rest_framework.permissions import AllowAny
 logger = logging.getLogger(__name__)
 
 from .serializers import ContactSubmissionSerializer
-
-LOGO_PATH = Path(__file__).parent / "noorix_logo.jpg"
 
 CONFIRMATION_TEMPLATE = """
 <!DOCTYPE html>
@@ -32,7 +27,7 @@ CONFIRMATION_TEMPLATE = """
           <!-- Header -->
           <tr>
             <td style="background:#ac1c7a;padding:28px 40px;text-align:center;">
-              <img src="cid:noorrix_logo" alt="Noorrix Motors" style="max-height:60px;max-width:200px;" />
+              <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:1px;">Noorrix Motors</span>
             </td>
           </tr>
 
@@ -100,7 +95,7 @@ HTML_TEMPLATE = """
           <!-- Header -->
           <tr>
             <td style="background:#ac1c7a;padding:28px 40px;text-align:center;">
-              <img src="cid:noorrix_logo" alt="Noorrix Motors" style="max-height:60px;max-width:200px;" />
+              <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:1px;">Noorrix Motors</span>
             </td>
           </tr>
 
@@ -230,7 +225,6 @@ class ContactSubmissionView(APIView):
             reply_to=[submission.email],
         )
         email.attach_alternative(html_body, "text/html")
-        self._attach_logo(email)
         try:
             email.send(fail_silently=False)
             logger.info("Admin notification sent for submission %s", submission.pk)
@@ -256,17 +250,9 @@ class ContactSubmissionView(APIView):
             to=[submission.email],
         )
         email.attach_alternative(html_body, "text/html")
-        self._attach_logo(email)
         try:
             email.send(fail_silently=False)
             logger.info("Confirmation sent to %s for submission %s", submission.email, submission.pk)
         except Exception as exc:
             logger.error("Confirmation email to %s failed for submission %s: %s", submission.email, submission.pk, exc, exc_info=True)
 
-    def _attach_logo(self, email):
-        if LOGO_PATH.exists():
-            with open(LOGO_PATH, "rb") as f:
-                logo = MIMEImage(f.read())
-                logo.add_header("Content-ID", "<noorrix_logo>")
-                logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
-                email.attach(logo)
