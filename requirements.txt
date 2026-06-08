@@ -11,4 +11,3 @@ pytest-django==4.8.0
 gunicorn==23.0.0
 whitenoise==6.8.2
 dj-database-url==2.3.0
-django-anymail[resend]==12.0
