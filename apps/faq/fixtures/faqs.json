@@ -1,0 +1,98 @@
+[
+{
+  "model": "faq.faq",
+  "pk": 1,
+  "fields": {
+    "question": "The expense windows adapted sir. Wrong widen drawn.",
+    "answer": "Offending belonging promotion provision an be oh consulted ourselves it. Blessing welcomed ladyship she met humoured sir breeding her.",
+    "order": 1,
+    "is_active": true,
+    "created_at": "2026-06-10T08:49:08.352Z",
+    "updated_at": "2026-06-10T08:49:08.352Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 2,
+  "fields": {
+    "question": "Six curiosity day assurance bed necessary?",
+    "answer": "Attention he extremity unwilling on otherwise. Conviction up partiality as delightful is discovered.",
+    "order": 2,
+    "is_active": true,
+    "created_at": "2026-06-10T08:49:32.366Z",
+    "updated_at": "2026-06-10T08:49:32.366Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 3,
+  "fields": {
+    "question": "Produce say the ten moments parties?",
+    "answer": "New plenty had defer you limited county settling principle. Existence its certainly explained how improving household pretended.",
+    "order": 3,
+    "is_active": true,
+    "created_at": "2026-06-10T08:50:43.818Z",
+    "updated_at": "2026-06-10T08:50:43.818Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 4,
+  "fields": {
+    "question": "Simple innate summer fat appear basket his desire joy?",
+    "answer": "An especially invitation decisively possession reasonably terminated on. Calling not screened kindness one rapturous departure.",
+    "order": 4,
+    "is_active": true,
+    "created_at": "2026-06-10T08:51:44.260Z",
+    "updated_at": "2026-06-10T08:51:44.260Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 5,
+  "fields": {
+    "question": "Outward clothes promise at gravity do excited?",
+    "answer": "Now pleasure provided judgment doubtful preserved bringing. Overcame in advantage suffering otherwise explained vicinity furniture.",
+    "order": 5,
+    "is_active": true,
+    "created_at": "2026-06-10T08:52:13.814Z",
+    "updated_at": "2026-06-10T08:52:13.814Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 6,
+  "fields": {
+    "question": "Outward clothes promise at gravity do excited?",
+    "answer": "Now pleasure provided judgment doubtful preserved bringing. Overcame in advantage suffering otherwise explained vicinity furniture.",
+    "order": 6,
+    "is_active": true,
+    "created_at": "2026-06-10T08:52:46.039Z",
+    "updated_at": "2026-06-10T08:52:46.039Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 7,
+  "fields": {
+    "question": "Outward clothes promise at gravity do excited?",
+    "answer": "Now pleasure provided judgment doubtful preserved bringing. Overcame in advantage suffering otherwise explained vicinity furniture.",
+    "order": 7,
+    "is_active": true,
+    "created_at": "2026-06-10T08:53:13.258Z",
+    "updated_at": "2026-06-10T08:53:13.258Z"
+  }
+},
+{
+  "model": "faq.faq",
+  "pk": 8,
+  "fields": {
+    "question": "Outward clothes promise at gravity do excited?",
+    "answer": "Now pleasure provided judgment doubtful preserved bringing. Overcame in advantage suffering otherwise explained vicinity furniture.",
+    "order": 8,
+    "is_active": true,
+    "created_at": "2026-06-10T08:53:36.228Z",
+    "updated_at": "2026-06-10T08:54:02.801Z"
+  }
+}
+]
