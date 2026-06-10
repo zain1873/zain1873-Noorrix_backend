@@ -1,7 +1,7 @@
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
-from .models import BlogPost
-from .serializers import BlogPostListSerializer, BlogPostDetailSerializer
+from .models import BlogPost, BlogCategory
+from .serializers import BlogPostListSerializer, BlogPostDetailSerializer, BlogCategorySerializer
 
 
 class BlogPostListView(generics.ListAPIView):
@@ -24,3 +24,9 @@ class BlogPostDetailView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     queryset           = BlogPost.objects.filter(is_published=True).select_related("category")
     lookup_field       = "slug"
+
+
+class BlogCategoryListView(generics.ListAPIView):
+    serializer_class   = BlogCategorySerializer
+    permission_classes = [AllowAny]
+    queryset           = BlogCategory.objects.all().order_by("name")

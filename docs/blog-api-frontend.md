@@ -17,6 +17,7 @@ NEXT_PUBLIC_API_URL=https://api.noorrixmotors.co.uk
 | GET | `/api/blogs/?featured=true` | Featured post only |
 | GET | `/api/blogs/?category=Car Tips` | Posts by category |
 | GET | `/api/blogs/<slug>/` | Single post with full body |
+| GET | `/api/blog-categories/` | All categories (for nav/filter UI) |
 
 No authentication required on any endpoint.
 
@@ -149,6 +150,88 @@ function Blogs({ posts = [], featuredPost = null }) {
 ```
 
 Remove any hardcoded `blogPosts` / `featuredPost` constants from the file.
+
+---
+
+## Category Page
+
+### How it works
+
+```
+/blogs/category/[category]   ← Next.js dynamic route
+```
+
+1. Fetch all categories → render filter nav
+2. Fetch posts filtered by the selected category
+3. Re-use the same blog card components
+
+### Step 1 — fetch all categories
+
+```js
+// anywhere you want a category nav/filter
+
+const BASE = process.env.NEXT_PUBLIC_API_URL;
+
+async function fetchCategories() {
+  const res = await fetch(`${BASE}/api/blog-categories/`, {
+    next: { revalidate: 3600 },
+  });
+  return res.json();
+}
+```
+
+Response:
+```json
+[
+  { "id": 1, "name": "Buying Guides" },
+  { "id": 2, "name": "Car Tips" },
+  { "id": 3, "name": "Maintenance" }
+]
+```
+
+### Step 2 — category page (Server Component)
+
+```js
+// src/app/blogs/category/[category]/page.js
+
+const BASE = process.env.NEXT_PUBLIC_API_URL;
+
+async function fetchPostsByCategory(category) {
+  const res = await fetch(
+    `${BASE}/api/blogs/?category=${encodeURIComponent(category)}`,
+    { next: { revalidate: 60 } }
+  );
+  return res.json();
+}
+
+export default async function CategoryPage({ params }) {
+  const category = decodeURIComponent(params.category);
+  const posts    = await fetchPostsByCategory(category);
+  return <Blogs posts={posts} featuredPost={null} />;
+}
+```
+
+### Step 3 — generate static paths (optional but recommended)
+
+```js
+// same file — src/app/blogs/category/[category]/page.js
+
+export async function generateStaticParams() {
+  const res        = await fetch(`${BASE}/api/blog-categories/`);
+  const categories = await res.json();
+  return categories.map((c) => ({
+    category: encodeURIComponent(c.name),
+  }));
+}
+```
+
+### Step 4 — link to category pages from a card or nav
+
+```jsx
+<a href={`/blogs/category/${encodeURIComponent(post.category.name)}`}>
+  {post.category.name}
+</a>
+```
 
 ---
 
