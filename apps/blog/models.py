@@ -2,22 +2,9 @@ from django.db import models
 from django.utils.text import slugify
 
 
-class BlogCategory(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-
-    class Meta:
-        verbose_name_plural = "Blog Categories"
-
-    def __str__(self):
-        return self.name
-
-
 class BlogPost(models.Model):
     title        = models.CharField(max_length=255)
     slug         = models.SlugField(max_length=255, unique=True, blank=True)
-    category     = models.ForeignKey(
-        BlogCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="posts"
-    )
     excerpt      = models.TextField(help_text="Short summary shown on the card (1–3 sentences)")
     body         = models.TextField(help_text="Full article content (Markdown or HTML)")
     image        = models.ImageField(upload_to="blogs/", help_text="Cover image — recommended 1200×630px")
