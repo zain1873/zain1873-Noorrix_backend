@@ -1,14 +1,21 @@
 from rest_framework import serializers
-from .models import BlogPost
+from .models import BlogPost, BlogCategory
+
+
+class BlogCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = BlogCategory
+        fields = ("id", "name")
 
 
 class BlogPostListSerializer(serializers.ModelSerializer):
+    category  = BlogCategorySerializer(read_only=True)
     image_url = serializers.SerializerMethodField()
 
     class Meta:
         model  = BlogPost
         fields = (
-            "id", "title", "slug",
+            "id", "title", "slug", "category",
             "excerpt", "image_url", "read_time",
             "is_featured", "published_at",
         )
