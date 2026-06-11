@@ -221,7 +221,7 @@ class ContactSubmissionView(APIView):
             subject=f"[Contact Form] {submission.subject}",
             body=plain_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[settings.EMAIL_HOST_USER],
+            to=[settings.ADMIN_EMAIL],
             reply_to=[submission.email],
         )
         email.attach_alternative(html_body, "text/html")
@@ -248,6 +248,7 @@ class ContactSubmissionView(APIView):
             body=plain_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[submission.email],
+            reply_to=[settings.ADMIN_EMAIL],
         )
         email.attach_alternative(html_body, "text/html")
         try:
