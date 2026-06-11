@@ -1,7 +1,7 @@
 import logging
 import threading
+import resend
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -210,23 +210,15 @@ class ContactSubmissionView(APIView):
             subject=submission.subject,
             message=submission.message.replace("\n", "<br>"),
         )
-        plain_body = (
-            f"Name:    {submission.name}\n"
-            f"Email:   {submission.email}\n"
-            f"Phone:   {submission.phone or '-'}\n"
-            f"Subject: {submission.subject}\n\n"
-            f"Message:\n{submission.message}"
-        )
-        email = EmailMultiAlternatives(
-            subject=f"[Contact Form] {submission.subject}",
-            body=plain_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[settings.ADMIN_EMAIL],
-            reply_to=[submission.email],
-        )
-        email.attach_alternative(html_body, "text/html")
         try:
-            email.send(fail_silently=False)
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [settings.ADMIN_EMAIL],
+                "reply_to": [submission.email],
+                "subject": f"[Contact Form] {submission.subject}",
+                "html": html_body,
+            })
             logger.info("Admin notification sent for submission %s", submission.pk)
         except Exception as exc:
             logger.error("Admin email failed for submission %s: %s", submission.pk, exc, exc_info=True)
@@ -237,22 +229,15 @@ class ContactSubmissionView(APIView):
             subject=submission.subject,
             message=submission.message.replace("\n", "<br>"),
         )
-        plain_body = (
-            f"Hi {submission.name},\n\n"
-            f"Thank you for contacting Noorrix Motors. We've received your message "
-            f"regarding \"{submission.subject}\" and will get back to you shortly.\n\n"
-            f"Your message:\n{submission.message}"
-        )
-        email = EmailMultiAlternatives(
-            subject="We've received your message — Noorrix Motors",
-            body=plain_body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[submission.email],
-            reply_to=[settings.ADMIN_EMAIL],
-        )
-        email.attach_alternative(html_body, "text/html")
         try:
-            email.send(fail_silently=False)
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [submission.email],
+                "reply_to": [settings.ADMIN_EMAIL],
+                "subject": "We've received your message — Noorrix Motors",
+                "html": html_body,
+            })
             logger.info("Confirmation sent to %s for submission %s", submission.email, submission.pk)
         except Exception as exc:
             logger.error("Confirmation email to %s failed for submission %s: %s", submission.email, submission.pk, exc, exc_info=True)
