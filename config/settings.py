@@ -119,7 +119,8 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = 'resend'
-EMAIL_HOST_PASSWORD = config('RESEND_API_KEY', default='')
+RESEND_API_KEY = config('RESEND_API_KEY', default='')
+EMAIL_HOST_PASSWORD = RESEND_API_KEY
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Noorrix Motors <noreply@noorrix.com>')
 ADMIN_EMAIL = config('ADMIN_EMAIL', default='')
 EMAIL_TIMEOUT = 10
