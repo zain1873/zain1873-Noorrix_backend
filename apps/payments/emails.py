@@ -1,9 +1,9 @@
+import base64
 import logging
-from email.mime.image import MIMEImage
 from pathlib import Path
 
+import resend
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
@@ -115,23 +115,25 @@ def send_payment_confirmation(payment):
         "If you have any questions please reply to this email."
     )
 
-    msg = EmailMultiAlternatives(
-        subject="Payment Confirmed — Noorrix Motors",
-        body=plain_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[payment.customer_email],
-    )
-    msg.attach_alternative(html_body, "text/html")
+    params = {
+        "from": settings.DEFAULT_FROM_EMAIL,
+        "to": [payment.customer_email],
+        "subject": "Payment Confirmed — Noorrix Motors",
+        "html": html_body,
+        "text": plain_body,
+    }
 
     if LOGO_PATH.exists():
         with open(LOGO_PATH, "rb") as f:
-            logo = MIMEImage(f.read())
-            logo.add_header("Content-ID", "<noorrix_logo>")
-            logo.add_header("Content-Disposition", "inline", filename="noorix_logo.jpg")
-            msg.attach(logo)
+            params["attachments"] = [{
+                "filename": "noorix_logo.jpg",
+                "content": base64.b64encode(f.read()).decode(),
+                "content_id": "noorrix_logo",
+            }]
 
     try:
-        msg.send(fail_silently=False)
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send(params)
         logger.info("Payment confirmation sent to %s for payment %s", payment.customer_email, payment.reference)
     except Exception:
         logger.exception("Failed to send payment confirmation for payment %s", payment.reference)

@@ -1,11 +1,11 @@
 import logging
 import secrets
 
+import resend
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
@@ -61,16 +61,17 @@ class PasswordResetSerializer(serializers.Serializer):
         PasswordResetOTP.objects.create(user=user, otp=otp)
 
         try:
-            send_mail(
-                subject='Password Reset OTP',
-                message=(
+            resend.api_key = settings.RESEND_API_KEY
+            resend.Emails.send({
+                "from": settings.DEFAULT_FROM_EMAIL,
+                "to": [email],
+                "subject": "Password Reset OTP",
+                "text": (
                     f'Your password reset OTP is: {otp}\n\n'
                     f'This OTP expires in {PasswordResetOTP.OTP_EXPIRY_MINUTES} minutes.\n\n'
                     'If you did not request a password reset, please ignore this email.'
                 ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[email],
-            )
+            })
         except Exception as exc:
             logger.error("Password reset email failed for %s: %s", email, exc, exc_info=True)
 
