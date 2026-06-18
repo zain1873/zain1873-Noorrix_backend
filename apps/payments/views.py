@@ -72,6 +72,7 @@ class CreatePaymentIntentView(APIView):
         currency = data.get("currency") or settings.STRIPE_CURRENCY
         description = data.get("description", "")
         email = data.get("email", "")
+        car = data.get("car")
         user = request.user if request.user.is_authenticated else None
 
         try:
@@ -92,6 +93,7 @@ class CreatePaymentIntentView(APIView):
 
         payment = Payment.objects.create(
             user=user,
+            car=car,
             stripe_payment_intent_id=intent.id,
             amount=amount,
             currency=currency,
@@ -136,11 +138,13 @@ class CreateCheckoutSessionView(APIView):
         description = data.get("description") or "Vehicle reservation deposit"
         success_url = data["success_url"]
         cancel_url = data["cancel_url"]
+        car = data.get("car")
         user = request.user if request.user.is_authenticated else None
 
         # Create our record first so GET /payments/{reference}/ works immediately.
         payment = Payment.objects.create(
             user=user,
+            car=car,
             amount=amount,
             currency=currency,
             description=description,
@@ -238,6 +242,7 @@ class PaymentDetailView(RetrieveAPIView):
                             update_fields.append("payment_method")
 
                     payment.save(update_fields=update_fields)
+                    payment.update_linked_car()
                     send_payment_confirmation(payment)
 
             elif payment.stripe_payment_intent_id:
@@ -246,6 +251,7 @@ class PaymentDetailView(RetrieveAPIView):
                 if new_status != payment.status:
                     payment.status = new_status
                     payment.save(update_fields=["status", "updated_at"])
+                    payment.update_linked_car()
 
         except stripe.StripeError:
             logger.exception("Could not sync payment %s from Stripe", payment.reference)
@@ -337,6 +343,7 @@ class StripeWebhookView(APIView):
             payment.stripe_payment_intent_id = intent_id
             update_fields.append("stripe_payment_intent_id")
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()
 
     def _complete_checkout(self, session):
         """Mark a checkout Payment succeeded and capture email + method.
@@ -369,6 +376,7 @@ class StripeWebhookView(APIView):
                 update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()
         send_payment_confirmation(payment)
 
     @staticmethod
@@ -400,6 +408,7 @@ class StripeWebhookView(APIView):
             return
         payment.status = Payment.Status.REFUNDED
         payment.save(update_fields=["status", "updated_at"])
+        payment.update_linked_car()
 
     def _update_payment(self, intent):
         # Stripe objects (StripeObject) are NOT dicts and have no .get(), so we
@@ -423,3 +432,4 @@ class StripeWebhookView(APIView):
                 update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()

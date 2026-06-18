@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 from django.conf import settings
 from rest_framework import serializers
 
+from apps.cars.models import Car
+
 from .models import Payment
 
 # Guard rails for the client-supplied amount. For a real product/order you
@@ -36,6 +38,10 @@ class CreatePaymentSerializer(serializers.Serializer):
     currency = serializers.CharField(max_length=3, required=False)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
+    # Optional: the car being reserved, so the payment links to it.
+    car = serializers.PrimaryKeyRelatedField(
+        queryset=Car.objects.all(), required=False, allow_null=True
+    )
 
     def validate_amount(self, value):
         return validate_amount_bounds(value)
@@ -52,6 +58,10 @@ class CreateCheckoutSessionSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     success_url = serializers.URLField()
     cancel_url = serializers.URLField()
+    # Optional: the car being reserved, so the payment links to it.
+    car = serializers.PrimaryKeyRelatedField(
+        queryset=Car.objects.all(), required=False, allow_null=True
+    )
 
     def validate_amount(self, value):
         return validate_amount_bounds(value)
@@ -77,6 +87,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "reference",
+            "car",
             "amount",
             "currency",
             "status",

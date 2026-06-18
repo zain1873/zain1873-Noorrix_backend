@@ -28,6 +28,16 @@ class Payment(models.Model):
         blank=True,
         related_name="payments",
     )
+    # The vehicle this payment reserves. SET_NULL so deleting a car never
+    # destroys the payment record.
+    car = models.ForeignKey(
+        "cars.Car",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        help_text="The vehicle this payment reserves (if any).",
+    )
     # Nullable: a Checkout Session has no PaymentIntent until the buyer pays.
     stripe_payment_intent_id = models.CharField(
         max_length=255, unique=True, null=True, blank=True
@@ -59,3 +69,25 @@ class Payment(models.Model):
     def amount_minor(self):
         """Amount in the smallest currency unit, as Stripe expects."""
         return int(self.amount * 100)
+
+    def update_linked_car(self):
+        """Keep the linked car's status in sync with this payment's status.
+
+        Succeeded → reserve an available car. Failed/canceled/refunded →
+        release a car we had reserved. A car already marked ``sold`` is never
+        touched automatically (admin keeps manual control of that)."""
+        car = self.car
+        if not car:
+            return
+        # Local import: the payments app loads before cars, so importing at
+        # module level could run before the cars app is ready.
+        from apps.cars.models import CarStatus
+
+        if self.status == self.Status.SUCCEEDED:
+            if car.status == CarStatus.AVAILABLE:
+                car.status = CarStatus.RESERVED
+                car.save(update_fields=["status", "updated_at"])
+        elif self.status in (self.Status.FAILED, self.Status.CANCELED, self.Status.REFUNDED):
+            if car.status == CarStatus.RESERVED:
+                car.status = CarStatus.AVAILABLE
+                car.save(update_fields=["status", "updated_at"])
