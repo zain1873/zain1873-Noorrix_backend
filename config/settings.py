@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     'apps.payments.apps.PaymentsConfig',
     'apps.blog.apps.BlogConfig',
     'apps.faq.apps.FaqConfig',
+    'apps.cars.apps.CarsConfig',
 ]
 
 MIDDLEWARE = [
