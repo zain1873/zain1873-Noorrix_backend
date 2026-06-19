@@ -90,26 +90,28 @@ class SimilarCarsView(generics.ListAPIView):
 
 
 class FiltersView(APIView):
-    """GET /api/filters/ — dynamic filter options built from current available stock.
+    """GET /api/filters/ — dynamic filter options built from all stock.
 
-    Make/Model/body/fuel/transmission/colour are derived from inventory so the
-    home hero filter, the stock filter and the actual stock all share one source.
-    Price/mileage ranges are static.
+    Make/Model/body/fuel/transmission/colour are derived from every car
+    (not just "available" ones) so a make/model doesn't vanish from the
+    dropdowns just because its only car got reserved/sold — same reasoning
+    as why CarListView no longer filters by status. Price/mileage ranges
+    are static.
     """
 
     permission_classes = [AllowAny]
 
     def get(self, request):
-        available = Car.objects.filter(status=CarStatus.AVAILABLE)
+        cars = Car.objects.all()
 
         make_models = defaultdict(set)
-        for make, model in available.values_list("make", "model"):
+        for make, model in cars.values_list("make", "model"):
             make_models[make].add(model)
 
         def distinct(field):
             # .order_by() clears the model's default ordering, otherwise the
             # order field leaks into SELECT and breaks DISTINCT.
-            values = available.order_by().values_list(field, flat=True).distinct()
+            values = cars.order_by().values_list(field, flat=True).distinct()
             return sorted(v for v in values if v)
 
         return Response({
