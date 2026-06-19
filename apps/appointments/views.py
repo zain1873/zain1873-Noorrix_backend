@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.cars.models import Car
 
+from .emails import send_admin_appointment_notification, send_appointment_confirmation
 from .models import Appointment
 from .serializers import AppointmentCreateSerializer, AppointmentSerializer
 
@@ -71,5 +72,8 @@ class AppointmentCreateView(APIView):
                 {"error": "This time slot has just been booked. Please pick another."},
                 status=status.HTTP_409_CONFLICT,
             )
+
+        send_appointment_confirmation(appointment)
+        send_admin_appointment_notification(appointment)
 
         return Response(AppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
