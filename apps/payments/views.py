@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 
 from apps.cars.models import CarStatus
 
-from .emails import send_payment_confirmation
+from .emails import send_admin_reservation_notification, send_payment_confirmation
 from .models import Payment
 from .serializers import (
     CreateCheckoutSessionSerializer,
@@ -358,6 +358,7 @@ class StripeWebhookView(APIView):
         payment.save(update_fields=update_fields)
         payment.update_linked_car()
         send_payment_confirmation(payment)
+        send_admin_reservation_notification(payment)
 
     @staticmethod
     def _payment_method_from_intent(intent_id):
