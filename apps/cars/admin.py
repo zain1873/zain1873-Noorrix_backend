@@ -35,6 +35,7 @@ class CarAdmin(admin.ModelAdmin):
             "fields": (
                 "year", "engine_cc", "engine", "doors", "seats",
                 "mileage", "price", "monthly", "mot_date", "history_check",
+                "deposit_amount",
             )
         }),
         ("Detail copy", {

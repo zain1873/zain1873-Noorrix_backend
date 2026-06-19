@@ -79,6 +79,10 @@ class Car(models.Model):
     )
     mot_date      = models.DateField(null=True, blank=True, help_text="MOT expiry date")
     history_check = models.CharField(max_length=120, blank=True, default="All passed")
+    deposit_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, default="200.00",
+        help_text="Refundable reservation deposit charged at checkout, in £.",
+    )
 
     # ── Media ──────────────────────────────────────────────────
     image = models.ImageField(

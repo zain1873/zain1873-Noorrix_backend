@@ -75,19 +75,28 @@ class Payment(models.Model):
 
         Succeeded → reserve an available car. Failed/canceled/refunded →
         release a car we had reserved. A car already marked ``sold`` is never
-        touched automatically (admin keeps manual control of that)."""
-        car = self.car
-        if not car:
+        touched automatically (admin keeps manual control of that).
+
+        Locks the car row for the duration of the check-then-set so two
+        webhook deliveries for the same car (e.g. two buyers paying at once)
+        can't both read ``available`` before either writes ``reserved``.
+        """
+        if not self.car_id:
             return
         # Local import: the payments app loads before cars, so importing at
         # module level could run before the cars app is ready.
-        from apps.cars.models import CarStatus
+        from django.db import transaction
 
-        if self.status == self.Status.SUCCEEDED:
-            if car.status == CarStatus.AVAILABLE:
-                car.status = CarStatus.RESERVED
-                car.save(update_fields=["status", "updated_at"])
-        elif self.status in (self.Status.FAILED, self.Status.CANCELED, self.Status.REFUNDED):
-            if car.status == CarStatus.RESERVED:
-                car.status = CarStatus.AVAILABLE
-                car.save(update_fields=["status", "updated_at"])
+        from apps.cars.models import Car, CarStatus
+
+        with transaction.atomic():
+            car = Car.objects.select_for_update().get(pk=self.car_id)
+
+            if self.status == self.Status.SUCCEEDED:
+                if car.status == CarStatus.AVAILABLE:
+                    car.status = CarStatus.RESERVED
+                    car.save(update_fields=["status", "updated_at"])
+            elif self.status in (self.Status.FAILED, self.Status.CANCELED, self.Status.REFUNDED):
+                if car.status == CarStatus.RESERVED:
+                    car.status = CarStatus.AVAILABLE
+                    car.save(update_fields=["status", "updated_at"])

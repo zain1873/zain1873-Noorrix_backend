@@ -32,13 +32,17 @@ def is_allowed_redirect(url):
 
 
 class CreatePaymentSerializer(serializers.Serializer):
-    """Validates the request to start a payment."""
+    """Validates the request to start a payment.
 
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    When ``car`` is given, the amount is the car's own ``deposit_amount`` —
+    never the client-supplied figure, so a buyer can't reserve a car for an
+    arbitrary amount. ``amount`` is only used for car-less/general payments.
+    """
+
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     currency = serializers.CharField(max_length=3, required=False)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
-    # Optional: the car being reserved, so the payment links to it.
     car = serializers.PrimaryKeyRelatedField(
         queryset=Car.objects.all(), required=False, allow_null=True
     )
@@ -49,16 +53,25 @@ class CreatePaymentSerializer(serializers.Serializer):
     def validate_currency(self, value):
         return value.lower()
 
+    def validate(self, attrs):
+        if not attrs.get("car") and attrs.get("amount") is None:
+            raise serializers.ValidationError({"amount": "Required when no car is specified."})
+        return attrs
+
 
 class CreateCheckoutSessionSerializer(serializers.Serializer):
-    """Validates the request to start a hosted Stripe Checkout Session."""
+    """Validates the request to start a hosted Stripe Checkout Session.
 
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    When ``car`` is given, the amount is the car's own ``deposit_amount`` —
+    never the client-supplied figure, so a buyer can't reserve a car for an
+    arbitrary amount. ``amount`` is only used for car-less/general payments.
+    """
+
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     currency = serializers.CharField(max_length=3, required=False)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     success_url = serializers.URLField()
     cancel_url = serializers.URLField()
-    # Optional: the car being reserved, so the payment links to it.
     car = serializers.PrimaryKeyRelatedField(
         queryset=Car.objects.all(), required=False, allow_null=True
     )
@@ -78,6 +91,11 @@ class CreateCheckoutSessionSerializer(serializers.Serializer):
         if not is_allowed_redirect(value):
             raise serializers.ValidationError("Redirect URL origin is not allowed.")
         return value
+
+    def validate(self, attrs):
+        if not attrs.get("car") and attrs.get("amount") is None:
+            raise serializers.ValidationError({"amount": "Required when no car is specified."})
+        return attrs
 
 
 class PaymentSerializer(serializers.ModelSerializer):

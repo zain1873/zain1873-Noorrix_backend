@@ -22,7 +22,7 @@ class CarListSerializer(serializers.ModelSerializer):
             "id", "title", "subtitle",
             "make", "model", "body_type", "fuel", "transmission", "colour",
             "year", "engine_cc", "mileage", "price", "monthly", "mot_date",
-            "image_url", "status", "is_favourite",
+            "image_url", "status", "is_favourite", "deposit_amount",
         )
 
     def get_image_url(self, obj):
