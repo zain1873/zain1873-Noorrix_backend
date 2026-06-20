@@ -4,6 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path
 
 from .models import Car, CarFeature, CarImage, Favourite
+from .utils import to_browser_safe_image
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -32,6 +33,14 @@ class CarAdminForm(forms.ModelForm):
     class Meta:
         model = Car
         fields = "__all__"
+
+    def clean_image(self):
+        image = self.cleaned_data.get("image")
+        return to_browser_safe_image(image) if image else image
+
+    def clean_gallery_images(self):
+        files = self.cleaned_data.get("gallery_images") or []
+        return [to_browser_safe_image(f) for f in files]
 
 
 class CarImageInline(admin.TabularInline):
@@ -113,10 +122,13 @@ class CarAdmin(admin.ModelAdmin):
                 created = 0
                 skipped = 0
                 for offset, f in enumerate(files):
-                    if not f.content_type or not f.content_type.startswith("image/"):
+                    is_heic = f.name.lower().endswith((".heic", ".heif"))
+                    if not is_heic and (not f.content_type or not f.content_type.startswith("image/")):
                         skipped += 1
                         continue
-                    CarImage.objects.create(car=car, image=f, sort_order=next_order + offset)
+                    CarImage.objects.create(
+                        car=car, image=to_browser_safe_image(f), sort_order=next_order + offset
+                    )
                     created += 1
                 if created:
                     messages.success(request, f"Uploaded {created} image(s) to {car.title}.")
