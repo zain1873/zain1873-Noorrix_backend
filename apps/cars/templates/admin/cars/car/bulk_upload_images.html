@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Bulk upload images — {{ car.title }}</h1>
+<p>Select all the gallery images for this car at once. They will be added after any existing images, in the order selected.</p>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <p>
+        <input type="file" name="images" accept="image/*" multiple required>
+    </p>
+    <input type="submit" class="default" value="Upload">
+    <a href="{% url 'admin:cars_car_change' car.pk %}" class="button cancel-link">Cancel</a>
+</form>
+{% endblock %}

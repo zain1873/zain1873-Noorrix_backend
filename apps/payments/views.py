@@ -10,7 +10,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .emails import send_payment_confirmation
+from apps.cars.models import CarStatus
+
+from .emails import send_admin_reservation_notification, send_payment_confirmation
 from .models import Payment
 from .serializers import (
     CreateCheckoutSessionSerializer,
@@ -68,7 +70,16 @@ class CreatePaymentIntentView(APIView):
             )
 
         data = serializer.validated_data
-        amount = data["amount"]
+        car = data.get("car")
+        if car:
+            if car.status != CarStatus.AVAILABLE:
+                return Response(
+                    {"success": False, "error": "This car is no longer available."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            amount = car.deposit_amount
+        else:
+            amount = data["amount"]
         currency = data.get("currency") or settings.STRIPE_CURRENCY
         description = data.get("description", "")
         email = data.get("email", "")
@@ -92,6 +103,7 @@ class CreatePaymentIntentView(APIView):
 
         payment = Payment.objects.create(
             user=user,
+            car=car,
             stripe_payment_intent_id=intent.id,
             amount=amount,
             currency=currency,
@@ -131,7 +143,16 @@ class CreateCheckoutSessionView(APIView):
             )
 
         data = serializer.validated_data
-        amount = data["amount"]
+        car = data.get("car")
+        if car:
+            if car.status != CarStatus.AVAILABLE:
+                return Response(
+                    {"success": False, "error": "This car is no longer available."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            amount = car.deposit_amount
+        else:
+            amount = data["amount"]
         currency = data.get("currency") or settings.STRIPE_CURRENCY
         description = data.get("description") or "Vehicle reservation deposit"
         success_url = data["success_url"]
@@ -141,6 +162,7 @@ class CreateCheckoutSessionView(APIView):
         # Create our record first so GET /payments/{reference}/ works immediately.
         payment = Payment.objects.create(
             user=user,
+            car=car,
             amount=amount,
             currency=currency,
             description=description,
@@ -199,56 +221,18 @@ class CreateCheckoutSessionView(APIView):
 
 
 class PaymentDetailView(RetrieveAPIView):
-    """Fetch a payment's current status by its (unguessable) reference UUID."""
+    """Fetch a payment's current status by its (unguessable) reference UUID.
+
+    Read-only: status only ever advances via the Stripe webhook (the trusted
+    source of truth). This view never talks to Stripe or touches the linked
+    car, so a frontend success-page poll can't itself trigger a reservation —
+    it just waits for ``status`` to flip once the webhook has run.
+    """
 
     permission_classes = [AllowAny]
     serializer_class = PaymentSerializer
     queryset = Payment.objects.all()
     lookup_field = "reference"
-
-    def get_object(self):
-        payment = super().get_object()
-        if payment.status in (Payment.Status.PENDING, Payment.Status.PROCESSING):
-            self._sync_from_stripe(payment)
-        return payment
-
-    @staticmethod
-    def _sync_from_stripe(payment):
-        try:
-            if payment.stripe_session_id:
-                session = stripe.checkout.Session.retrieve(payment.stripe_session_id)
-                if _safe_get(session, "payment_status") == "paid":
-                    update_fields = ["status", "updated_at"]
-                    payment.status = Payment.Status.SUCCEEDED
-
-                    details = _safe_get(session, "customer_details") or {}
-                    email = _safe_get(details, "email") or _safe_get(session, "customer_email")
-                    if email and not payment.customer_email:
-                        payment.customer_email = email
-                        update_fields.append("customer_email")
-
-                    intent_id = _safe_get(session, "payment_intent")
-                    if intent_id:
-                        if not payment.stripe_payment_intent_id:
-                            payment.stripe_payment_intent_id = intent_id
-                            update_fields.append("stripe_payment_intent_id")
-                        method = StripeWebhookView._payment_method_from_intent(intent_id)
-                        if method and not payment.payment_method:
-                            payment.payment_method = method
-                            update_fields.append("payment_method")
-
-                    payment.save(update_fields=update_fields)
-                    send_payment_confirmation(payment)
-
-            elif payment.stripe_payment_intent_id:
-                intent = stripe.PaymentIntent.retrieve(payment.stripe_payment_intent_id)
-                new_status = STRIPE_STATUS_MAP.get(_safe_get(intent, "status"), payment.status)
-                if new_status != payment.status:
-                    payment.status = new_status
-                    payment.save(update_fields=["status", "updated_at"])
-
-        except stripe.StripeError:
-            logger.exception("Could not sync payment %s from Stripe", payment.reference)
 
 
 class StripeWebhookView(APIView):
@@ -328,8 +312,8 @@ class StripeWebhookView(APIView):
     def _set_status_by_reference(self, session, new_status):
         """Set a Payment's status from a Checkout Session (failed / expired)."""
         payment = self._payment_for_session(session)
-        if not payment:
-            return
+        if not payment or payment.status == new_status:
+            return  # already applied — Stripe may retry the same event
         payment.status = new_status
         update_fields = ["status", "updated_at"]
         intent_id = _safe_get(session, "payment_intent")
@@ -337,6 +321,7 @@ class StripeWebhookView(APIView):
             payment.stripe_payment_intent_id = intent_id
             update_fields.append("stripe_payment_intent_id")
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()
 
     def _complete_checkout(self, session):
         """Mark a checkout Payment succeeded and capture email + method.
@@ -345,8 +330,10 @@ class StripeWebhookView(APIView):
         completes: we read customer_details.email and retrieve the
         PaymentIntent's charge for the actual method (card / paypal / …).
         """
+        # Already applied — Stripe may retry the same event, and we must not
+        # resend the confirmation email or re-touch the car.
         payment = self._payment_for_session(session)
-        if not payment:
+        if not payment or payment.status == Payment.Status.SUCCEEDED:
             return
 
         payment.status = Payment.Status.SUCCEEDED
@@ -369,7 +356,9 @@ class StripeWebhookView(APIView):
                 update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()
         send_payment_confirmation(payment)
+        send_admin_reservation_notification(payment)
 
     @staticmethod
     def _payment_method_from_intent(intent_id):
@@ -398,8 +387,11 @@ class StripeWebhookView(APIView):
         except Payment.DoesNotExist:
             logger.warning("Refund for unknown PaymentIntent %s", intent_id)
             return
+        if payment.status == Payment.Status.REFUNDED:
+            return  # already applied — Stripe may retry the same event
         payment.status = Payment.Status.REFUNDED
         payment.save(update_fields=["status", "updated_at"])
+        payment.update_linked_car()
 
     def _update_payment(self, intent):
         # Stripe objects (StripeObject) are NOT dicts and have no .get(), so we
@@ -412,6 +404,8 @@ class StripeWebhookView(APIView):
             return
 
         new_status = STRIPE_STATUS_MAP.get(intent["status"], payment.status)
+        if new_status == payment.status:
+            return  # already applied — Stripe may retry the same event
         payment.status = new_status
         update_fields = ["status", "updated_at"]
 
@@ -423,3 +417,4 @@ class StripeWebhookView(APIView):
                 update_fields.append("payment_method")
 
         payment.save(update_fields=update_fields)
+        payment.update_linked_car()

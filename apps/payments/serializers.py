@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 from django.conf import settings
 from rest_framework import serializers
 
+from apps.cars.models import Car
+
 from .models import Payment
 
 # Guard rails for the client-supplied amount. For a real product/order you
@@ -30,12 +32,20 @@ def is_allowed_redirect(url):
 
 
 class CreatePaymentSerializer(serializers.Serializer):
-    """Validates the request to start a payment."""
+    """Validates the request to start a payment.
 
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    When ``car`` is given, the amount is the car's own ``deposit_amount`` —
+    never the client-supplied figure, so a buyer can't reserve a car for an
+    arbitrary amount. ``amount`` is only used for car-less/general payments.
+    """
+
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     currency = serializers.CharField(max_length=3, required=False)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
+    car = serializers.PrimaryKeyRelatedField(
+        queryset=Car.objects.all(), required=False, allow_null=True
+    )
 
     def validate_amount(self, value):
         return validate_amount_bounds(value)
@@ -43,15 +53,28 @@ class CreatePaymentSerializer(serializers.Serializer):
     def validate_currency(self, value):
         return value.lower()
 
+    def validate(self, attrs):
+        if not attrs.get("car") and attrs.get("amount") is None:
+            raise serializers.ValidationError({"amount": "Required when no car is specified."})
+        return attrs
+
 
 class CreateCheckoutSessionSerializer(serializers.Serializer):
-    """Validates the request to start a hosted Stripe Checkout Session."""
+    """Validates the request to start a hosted Stripe Checkout Session.
 
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    When ``car`` is given, the amount is the car's own ``deposit_amount`` —
+    never the client-supplied figure, so a buyer can't reserve a car for an
+    arbitrary amount. ``amount`` is only used for car-less/general payments.
+    """
+
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
     currency = serializers.CharField(max_length=3, required=False)
     description = serializers.CharField(max_length=255, required=False, allow_blank=True)
     success_url = serializers.URLField()
     cancel_url = serializers.URLField()
+    car = serializers.PrimaryKeyRelatedField(
+        queryset=Car.objects.all(), required=False, allow_null=True
+    )
 
     def validate_amount(self, value):
         return validate_amount_bounds(value)
@@ -69,6 +92,11 @@ class CreateCheckoutSessionSerializer(serializers.Serializer):
             raise serializers.ValidationError("Redirect URL origin is not allowed.")
         return value
 
+    def validate(self, attrs):
+        if not attrs.get("car") and attrs.get("amount") is None:
+            raise serializers.ValidationError({"amount": "Required when no car is specified."})
+        return attrs
+
 
 class PaymentSerializer(serializers.ModelSerializer):
     """Read-only representation returned to the client."""
@@ -77,6 +105,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "reference",
+            "car",
             "amount",
             "currency",
             "status",
