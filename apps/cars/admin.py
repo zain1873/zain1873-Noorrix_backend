@@ -27,6 +27,14 @@ class CarAdmin(admin.ModelAdmin):
     inlines = (CarImageInline, CarFeatureInline)
     change_form_template = "admin/cars/car/change_form.html"
 
+    def response_add(self, request, obj, post_url_continue=None):
+        # After creating a new car, land on its edit page (not the changelist)
+        # so the "Bulk upload images" button is right there — no second open.
+        if "_addanother" not in request.POST and "_continue" not in request.POST:
+            request.POST = request.POST.copy()
+            request.POST["_continue"] = "1"
+        return super().response_add(request, obj, post_url_continue)
+
     def get_urls(self):
         return [
             path(
