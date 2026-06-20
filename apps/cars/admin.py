@@ -1,4 +1,6 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import path
 
 from .models import Car, CarFeature, CarImage, Favourite
 
@@ -23,6 +25,47 @@ class CarAdmin(admin.ModelAdmin):
     search_fields = ("title", "subtitle", "make", "model")
     readonly_fields = ("created_at", "updated_at")
     inlines = (CarImageInline, CarFeatureInline)
+    change_form_template = "admin/cars/car/change_form.html"
+
+    def get_urls(self):
+        return [
+            path(
+                "<int:car_id>/bulk-upload-images/",
+                self.admin_site.admin_view(self.bulk_upload_images_view),
+                name="cars_car_bulk_upload_images",
+            ),
+        ] + super().get_urls()
+
+    def bulk_upload_images_view(self, request, car_id):
+        car = get_object_or_404(Car, pk=car_id)
+
+        if request.method == "POST":
+            files = request.FILES.getlist("images")
+            if not files:
+                messages.error(request, "No files were selected.")
+            else:
+                next_order = (
+                    car.gallery.order_by("-sort_order").values_list("sort_order", flat=True).first() or 0
+                ) + 1
+                created = 0
+                skipped = 0
+                for offset, f in enumerate(files):
+                    if not f.content_type or not f.content_type.startswith("image/"):
+                        skipped += 1
+                        continue
+                    CarImage.objects.create(car=car, image=f, sort_order=next_order + offset)
+                    created += 1
+                if created:
+                    messages.success(request, f"Uploaded {created} image(s) to {car.title}.")
+                if skipped:
+                    messages.warning(request, f"Skipped {skipped} non-image file(s).")
+            return redirect("admin:cars_car_change", car_id)
+
+        return render(request, "admin/cars/car/bulk_upload_images.html", {
+            "car": car,
+            "opts": self.model._meta,
+            "title": f"Bulk upload images — {car.title}",
+        })
 
     fieldsets = (
         ("Identity", {
