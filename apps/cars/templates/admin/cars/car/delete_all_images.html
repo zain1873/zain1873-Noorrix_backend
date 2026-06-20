@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<h1>Delete all images — {{ car.title }}</h1>
+
+{% if image_count %}
+<p>This will permanently delete all <strong>{{ image_count }}</strong> gallery image(s) for this car. This cannot be undone.</p>
+<form method="post">
+    {% csrf_token %}
+    <input type="submit" class="default" style="background:#ba2121" value="Yes, delete all {{ image_count }} image(s)">
+    <a href="{% url 'admin:cars_car_change' car.pk %}" class="button cancel-link">Cancel</a>
+</form>
+{% else %}
+<p>This car has no gallery images.</p>
+<a href="{% url 'admin:cars_car_change' car.pk %}" class="button">Back</a>
+{% endif %}
+{% endblock %}
