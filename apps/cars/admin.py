@@ -35,8 +35,11 @@ class CarAdminForm(forms.ModelForm):
 
 
 class CarImageInline(admin.TabularInline):
+    """Shows already-added gallery images for reorder/delete.
+    New images are added via the "Gallery (bulk upload)" field above instead."""
+
     model = CarImage
-    extra = 3
+    extra = 0
     fields = ("image", "sort_order")
 
 
