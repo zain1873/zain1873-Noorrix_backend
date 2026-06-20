@@ -5,6 +5,9 @@
 <li>
     <a href="{% url 'admin:cars_car_bulk_upload_images' original.pk %}" class="button">Bulk upload images</a>
 </li>
+<li>
+    <a href="{% url 'admin:cars_car_delete_all_images' original.pk %}" class="button">Delete all images</a>
+</li>
 {% endif %}
 {{ block.super }}
 {% endblock %}
