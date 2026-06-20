@@ -106,7 +106,30 @@ class CarAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.bulk_upload_images_view),
                 name="cars_car_bulk_upload_images",
             ),
+            path(
+                "<int:car_id>/delete-all-images/",
+                self.admin_site.admin_view(self.delete_all_images_view),
+                name="cars_car_delete_all_images",
+            ),
         ] + super().get_urls()
+
+    def delete_all_images_view(self, request, car_id):
+        car = get_object_or_404(Car, pk=car_id)
+
+        if request.method == "POST":
+            images = list(car.gallery.all())
+            for img in images:
+                img.image.delete(save=False)
+                img.delete()
+            messages.success(request, f"Deleted {len(images)} gallery image(s) from {car.title}.")
+            return redirect("admin:cars_car_change", car_id)
+
+        return render(request, "admin/cars/car/delete_all_images.html", {
+            "car": car,
+            "opts": self.model._meta,
+            "title": f"Delete all images — {car.title}",
+            "image_count": car.gallery.count(),
+        })
 
     def bulk_upload_images_view(self, request, car_id):
         car = get_object_or_404(Car, pk=car_id)
