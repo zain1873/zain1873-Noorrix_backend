@@ -36,11 +36,15 @@ class CarAdminForm(forms.ModelForm):
 
 class CarImageInline(admin.TabularInline):
     """Shows already-added gallery images for reorder/delete.
-    New images are added via the "Gallery (bulk upload)" field above instead."""
+    New images are added via the "Gallery (bulk upload)" field above instead,
+    so adding through this inline is disabled."""
 
     model = CarImage
     extra = 0
     fields = ("image", "sort_order")
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class CarFeatureInline(admin.TabularInline):
@@ -59,6 +63,13 @@ class CarAdmin(admin.ModelAdmin):
     inlines = (CarImageInline, CarFeatureInline)
     change_form_template = "admin/cars/car/change_form.html"
     form = CarAdminForm
+
+    def get_inline_instances(self, request, obj=None):
+        instances = super().get_inline_instances(request, obj)
+        if obj is None:
+            # Nothing to manage yet on the Add Car page — images come via gallery_images.
+            instances = [i for i in instances if not isinstance(i, CarImageInline)]
+        return instances
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
