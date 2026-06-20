@@ -14,3 +14,4 @@ dj-database-url==2.3.0
 pillow==11.2.1
 resend==2.10.0
 openpyxl==3.1.5
+pillow-heif==1.4.0
