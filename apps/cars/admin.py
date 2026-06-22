@@ -3,8 +3,16 @@ from django.contrib import admin, messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path
 
-from .models import Car, CarFeature, CarImage, Favourite
+from .models import Car, CarFeature, CarImage, Favourite, FeatureCategory
 from .utils import to_browser_safe_image
+
+FEATURE_BULK_FIELDS = {
+    "exterior_features":     FeatureCategory.EXTERIOR,
+    "interior_features":     FeatureCategory.INTERIOR,
+    "performance_features":  FeatureCategory.PERFORMANCE,
+    "size_features":         FeatureCategory.SIZE_AND_DIMENSIONS,
+    "audio_features":        FeatureCategory.AUDIO_AND_COMMUNICATIONS,
+}
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -29,14 +37,46 @@ class CarAdminForm(forms.ModelForm):
         required=False,
         help_text="Select all gallery images at once (e.g. 50-100 files) — added after Save.",
     )
+    exterior_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Exterior features", help_text="One feature per line — replaces this category's list on Save.",
+    )
+    interior_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Interior features", help_text="One feature per line — replaces this category's list on Save.",
+    )
+    performance_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Performance features", help_text="One feature per line — replaces this category's list on Save.",
+    )
+    size_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Size and dimensions", help_text="One item per line — replaces this category's list on Save.",
+    )
+    audio_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Audio and Communications features", help_text="One feature per line — replaces this category's list on Save.",
+    )
 
     class Meta:
         model = Car
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            for field_name, category in FEATURE_BULK_FIELDS.items():
+                texts = self.instance.features.filter(category=category).values_list("text", flat=True)
+                self.fields[field_name].initial = "\n".join(texts)
+
     def clean_image(self):
         image = self.cleaned_data.get("image")
-        return to_browser_safe_image(image) if image else image
+        # Only a freshly uploaded file needs processing — an unchanged value is
+        # the existing (already-committed) FieldFile, re-processing it on every
+        # save is wasteful and breaks if the underlying file is ever missing.
+        if image and not getattr(image, "_committed", False):
+            return to_browser_safe_image(image)
+        return image
 
     def clean_gallery_images(self):
         files = self.cleaned_data.get("gallery_images") or []
@@ -56,12 +96,6 @@ class CarImageInline(admin.TabularInline):
         return False
 
 
-class CarFeatureInline(admin.TabularInline):
-    model = CarFeature
-    extra = 5
-    fields = ("text",)
-
-
 @admin.register(Car)
 class CarAdmin(admin.ModelAdmin):
     list_display  = ("title", "subtitle", "make", "model", "year", "price", "mileage", "status")
@@ -69,14 +103,14 @@ class CarAdmin(admin.ModelAdmin):
     list_editable = ("status",)
     search_fields = ("title", "subtitle", "make", "model")
     readonly_fields = ("created_at", "updated_at")
-    inlines = (CarImageInline, CarFeatureInline)
+    inlines = (CarImageInline,)
     change_form_template = "admin/cars/car/change_form.html"
     form = CarAdminForm
 
     def get_inline_instances(self, request, obj=None):
         instances = super().get_inline_instances(request, obj)
         if obj is None:
-            # Nothing to manage yet on the Add Car page — images come via gallery_images.
+            # Nothing to manage yet on the Add Car page — images come via the bulk field.
             instances = [i for i in instances if not isinstance(i, CarImageInline)]
         return instances
 
@@ -90,6 +124,22 @@ class CarAdmin(admin.ModelAdmin):
             for offset, f in enumerate(files):
                 CarImage.objects.create(car=obj, image=f, sort_order=next_order + offset)
             messages.success(request, f"Uploaded {len(files)} gallery image(s).")
+
+        feature_count = 0
+        for field_name, category in FEATURE_BULK_FIELDS.items():
+            lines = [
+                line.strip()
+                for line in (form.cleaned_data.get(field_name) or "").splitlines()
+                if line.strip()
+            ]
+            # The box reflects the full current list for its category, so
+            # saving syncs to exactly what's in the box (not append-only).
+            obj.features.filter(category=category).delete()
+            CarFeature.objects.bulk_create([
+                CarFeature(car=obj, category=category, text=line) for line in lines
+            ])
+            feature_count += len(lines)
+        messages.success(request, f"Saved {feature_count} feature(s).")
 
     def response_add(self, request, obj, post_url_continue=None):
         # After creating a new car, land on its edit page (not the changelist)
@@ -173,6 +223,13 @@ class CarAdmin(admin.ModelAdmin):
             "fields": ("gallery_images",),
             "description": "Select 20, 50, 100+ images here — they're added as gallery images on Save.",
         }),
+        ("Features (bulk add)", {
+            "fields": (
+                "exterior_features", "interior_features", "performance_features",
+                "size_features", "audio_features",
+            ),
+            "description": "Paste one feature per line in the matching box — no need to pick a category per line.",
+        }),
         ("Classification (filters)", {
             "fields": ("make", "model", "body_type", "fuel", "transmission", "colour")
         }),
@@ -184,7 +241,7 @@ class CarAdmin(admin.ModelAdmin):
             )
         }),
         ("Detail copy", {
-            "fields": ("description", "summary", "performance", "interior", "safety", "video_url")
+            "fields": ("description", "video_url")
         }),
         ("Location (leave blank for site default)", {
             "fields": ("location_name", "location_address"),
