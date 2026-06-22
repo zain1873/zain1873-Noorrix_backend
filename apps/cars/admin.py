@@ -10,6 +10,7 @@ FEATURE_BULK_FIELDS = {
     "exterior_features":     FeatureCategory.EXTERIOR,
     "interior_features":     FeatureCategory.INTERIOR,
     "performance_features":  FeatureCategory.PERFORMANCE,
+    "size_features":         FeatureCategory.SIZE_AND_DIMENSIONS,
     "audio_features":        FeatureCategory.AUDIO_AND_COMMUNICATIONS,
 }
 
@@ -38,19 +39,23 @@ class CarAdminForm(forms.ModelForm):
     )
     exterior_features = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 5}),
-        label="Exterior features", help_text="One feature per line — added on Save.",
+        label="Exterior features", help_text="One feature per line — replaces this category's list on Save.",
     )
     interior_features = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 5}),
-        label="Interior features", help_text="One feature per line — added on Save.",
+        label="Interior features", help_text="One feature per line — replaces this category's list on Save.",
     )
     performance_features = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 5}),
-        label="Performance features", help_text="One feature per line — added on Save.",
+        label="Performance features", help_text="One feature per line — replaces this category's list on Save.",
+    )
+    size_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Size and dimensions", help_text="One item per line — replaces this category's list on Save.",
     )
     audio_features = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 5}),
-        label="Audio and Communications features", help_text="One feature per line — added on Save.",
+        label="Audio and Communications features", help_text="One feature per line — replaces this category's list on Save.",
     )
 
     class Meta:
@@ -219,7 +224,10 @@ class CarAdmin(admin.ModelAdmin):
             "description": "Select 20, 50, 100+ images here — they're added as gallery images on Save.",
         }),
         ("Features (bulk add)", {
-            "fields": ("exterior_features", "interior_features", "performance_features", "audio_features"),
+            "fields": (
+                "exterior_features", "interior_features", "performance_features",
+                "size_features", "audio_features",
+            ),
             "description": "Paste one feature per line in the matching box — no need to pick a category per line.",
         }),
         ("Classification (filters)", {

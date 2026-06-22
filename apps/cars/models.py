@@ -49,6 +49,7 @@ class FeatureCategory(models.TextChoices):
     EXTERIOR = "Exterior", "Exterior"
     INTERIOR = "Interior", "Interior"
     PERFORMANCE = "Performance", "Performance"
+    SIZE_AND_DIMENSIONS = "Size and dimensions", "Size and dimensions"
     AUDIO_AND_COMMUNICATIONS = "Audio and Communications", "Audio and Communications"
 
 
