@@ -45,6 +45,13 @@ class CarStatus(models.TextChoices):
     SOLD      = "sold", "Sold"
 
 
+class FeatureCategory(models.TextChoices):
+    EXTERIOR = "Exterior", "Exterior"
+    INTERIOR = "Interior", "Interior"
+    PERFORMANCE = "Performance", "Performance"
+    AUDIO_AND_COMMUNICATIONS = "Audio and Communications", "Audio and Communications"
+
+
 class Car(models.Model):
     """A single vehicle in stock — the single source of truth for list, detail,
     brand, similar and checkout. The numeric ``id`` is the stable key the
@@ -91,10 +98,6 @@ class Car(models.Model):
 
     # ── Detail copy ────────────────────────────────────────────
     description = models.TextField(blank=True, help_text="Marketing description shown on the detail page")
-    summary     = models.TextField(blank=True, help_text="Vehicle Summary accordion")
-    performance = models.TextField(blank=True, help_text="Performance & Economy accordion")
-    interior    = models.TextField(blank=True, help_text="Interior/Exterior accordion")
-    safety      = models.TextField(blank=True, help_text="Safety/Other accordion")
     video_url   = models.URLField(blank=True, help_text="Video walkthrough URL (YouTube etc.)")
 
     # ── Location (blank → front-end uses the global default) ───
@@ -131,16 +134,18 @@ class CarImage(models.Model):
 
 
 class CarFeature(models.Model):
-    """A single feature/highlight for a car (e.g. 'Bluetooth')."""
+    """A single feature/highlight for a car (e.g. 'Bluetooth'), grouped by
+    category so the front-end doesn't have to guess from the text."""
 
-    car  = models.ForeignKey(Car, on_delete=models.CASCADE, related_name="features")
-    text = models.CharField(max_length=120)
+    car      = models.ForeignKey(Car, on_delete=models.CASCADE, related_name="features")
+    category = models.CharField(max_length=40, choices=FeatureCategory.choices, default=FeatureCategory.INTERIOR)
+    text     = models.CharField(max_length=200)
 
     class Meta:
         ordering = ["id"]
 
     def __str__(self):
-        return self.text
+        return f"[{self.category}] {self.text}"
 
 
 class Favourite(models.Model):
