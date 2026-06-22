@@ -57,9 +57,21 @@ class CarAdminForm(forms.ModelForm):
         model = Car
         fields = "__all__"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            for field_name, category in FEATURE_BULK_FIELDS.items():
+                texts = self.instance.features.filter(category=category).values_list("text", flat=True)
+                self.fields[field_name].initial = "\n".join(texts)
+
     def clean_image(self):
         image = self.cleaned_data.get("image")
-        return to_browser_safe_image(image) if image else image
+        # Only a freshly uploaded file needs processing — an unchanged value is
+        # the existing (already-committed) FieldFile, re-processing it on every
+        # save is wasteful and breaks if the underlying file is ever missing.
+        if image and not getattr(image, "_committed", False):
+            return to_browser_safe_image(image)
+        return image
 
     def clean_gallery_images(self):
         files = self.cleaned_data.get("gallery_images") or []
@@ -79,19 +91,6 @@ class CarImageInline(admin.TabularInline):
         return False
 
 
-class CarFeatureInline(admin.TabularInline):
-    """Shows already-added features for edit/delete.
-    New features are added via the per-category bulk text fields above instead,
-    so adding through this inline is disabled."""
-
-    model = CarFeature
-    extra = 0
-    fields = ("category", "text")
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
 @admin.register(Car)
 class CarAdmin(admin.ModelAdmin):
     list_display  = ("title", "subtitle", "make", "model", "year", "price", "mileage", "status")
@@ -99,15 +98,15 @@ class CarAdmin(admin.ModelAdmin):
     list_editable = ("status",)
     search_fields = ("title", "subtitle", "make", "model")
     readonly_fields = ("created_at", "updated_at")
-    inlines = (CarImageInline, CarFeatureInline)
+    inlines = (CarImageInline,)
     change_form_template = "admin/cars/car/change_form.html"
     form = CarAdminForm
 
     def get_inline_instances(self, request, obj=None):
         instances = super().get_inline_instances(request, obj)
         if obj is None:
-            # Nothing to manage yet on the Add Car page — images/features come via the bulk fields.
-            instances = [i for i in instances if not isinstance(i, (CarImageInline, CarFeatureInline))]
+            # Nothing to manage yet on the Add Car page — images come via the bulk field.
+            instances = [i for i in instances if not isinstance(i, CarImageInline)]
         return instances
 
     def save_model(self, request, obj, form, change):
@@ -128,11 +127,14 @@ class CarAdmin(admin.ModelAdmin):
                 for line in (form.cleaned_data.get(field_name) or "").splitlines()
                 if line.strip()
             ]
-            for line in lines:
-                CarFeature.objects.create(car=obj, category=category, text=line)
+            # The box reflects the full current list for its category, so
+            # saving syncs to exactly what's in the box (not append-only).
+            obj.features.filter(category=category).delete()
+            CarFeature.objects.bulk_create([
+                CarFeature(car=obj, category=category, text=line) for line in lines
+            ])
             feature_count += len(lines)
-        if feature_count:
-            messages.success(request, f"Added {feature_count} feature(s).")
+        messages.success(request, f"Saved {feature_count} feature(s).")
 
     def response_add(self, request, obj, post_url_continue=None):
         # After creating a new car, land on its edit page (not the changelist)
