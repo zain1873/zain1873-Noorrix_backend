@@ -3,8 +3,15 @@ from django.contrib import admin, messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path
 
-from .models import Car, CarFeature, CarImage, Favourite
+from .models import Car, CarFeature, CarImage, Favourite, FeatureCategory
 from .utils import to_browser_safe_image
+
+FEATURE_BULK_FIELDS = {
+    "exterior_features":     FeatureCategory.EXTERIOR,
+    "interior_features":     FeatureCategory.INTERIOR,
+    "performance_features":  FeatureCategory.PERFORMANCE,
+    "audio_features":        FeatureCategory.AUDIO_AND_COMMUNICATIONS,
+}
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -28,6 +35,22 @@ class CarAdminForm(forms.ModelForm):
     gallery_images = MultipleFileField(
         required=False,
         help_text="Select all gallery images at once (e.g. 50-100 files) — added after Save.",
+    )
+    exterior_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Exterior features", help_text="One feature per line — added on Save.",
+    )
+    interior_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Interior features", help_text="One feature per line — added on Save.",
+    )
+    performance_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Performance features", help_text="One feature per line — added on Save.",
+    )
+    audio_features = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 5}),
+        label="Audio and Communications features", help_text="One feature per line — added on Save.",
     )
 
     class Meta:
@@ -57,9 +80,16 @@ class CarImageInline(admin.TabularInline):
 
 
 class CarFeatureInline(admin.TabularInline):
+    """Shows already-added features for edit/delete.
+    New features are added via the per-category bulk text fields above instead,
+    so adding through this inline is disabled."""
+
     model = CarFeature
-    extra = 5
+    extra = 0
     fields = ("category", "text")
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Car)
@@ -76,8 +106,8 @@ class CarAdmin(admin.ModelAdmin):
     def get_inline_instances(self, request, obj=None):
         instances = super().get_inline_instances(request, obj)
         if obj is None:
-            # Nothing to manage yet on the Add Car page — images come via gallery_images.
-            instances = [i for i in instances if not isinstance(i, CarImageInline)]
+            # Nothing to manage yet on the Add Car page — images/features come via the bulk fields.
+            instances = [i for i in instances if not isinstance(i, (CarImageInline, CarFeatureInline))]
         return instances
 
     def save_model(self, request, obj, form, change):
@@ -90,6 +120,19 @@ class CarAdmin(admin.ModelAdmin):
             for offset, f in enumerate(files):
                 CarImage.objects.create(car=obj, image=f, sort_order=next_order + offset)
             messages.success(request, f"Uploaded {len(files)} gallery image(s).")
+
+        feature_count = 0
+        for field_name, category in FEATURE_BULK_FIELDS.items():
+            lines = [
+                line.strip()
+                for line in (form.cleaned_data.get(field_name) or "").splitlines()
+                if line.strip()
+            ]
+            for line in lines:
+                CarFeature.objects.create(car=obj, category=category, text=line)
+            feature_count += len(lines)
+        if feature_count:
+            messages.success(request, f"Added {feature_count} feature(s).")
 
     def response_add(self, request, obj, post_url_continue=None):
         # After creating a new car, land on its edit page (not the changelist)
@@ -172,6 +215,10 @@ class CarAdmin(admin.ModelAdmin):
         ("Gallery (bulk upload)", {
             "fields": ("gallery_images",),
             "description": "Select 20, 50, 100+ images here — they're added as gallery images on Save.",
+        }),
+        ("Features (bulk add)", {
+            "fields": ("exterior_features", "interior_features", "performance_features", "audio_features"),
+            "description": "Paste one feature per line in the matching box — no need to pick a category per line.",
         }),
         ("Classification (filters)", {
             "fields": ("make", "model", "body_type", "fuel", "transmission", "colour")
