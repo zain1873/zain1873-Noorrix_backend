@@ -48,13 +48,12 @@ class CarDetailSerializer(CarListSerializer):
 
     images   = serializers.SerializerMethodField()
     features = serializers.SerializerMethodField()
-    details  = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
 
     class Meta(CarListSerializer.Meta):
         fields = CarListSerializer.Meta.fields + (
             "engine", "doors", "seats", "history_check",
-            "images", "features", "description", "details",
+            "images", "features", "description",
             "video_url", "location",
             "created_at", "updated_at",
         )
@@ -66,15 +65,7 @@ class CarDetailSerializer(CarListSerializer):
         return gallery or ([_abs(request, obj.image)] if obj.image else [])
 
     def get_features(self, obj):
-        return [f.text for f in obj.features.all()]
-
-    def get_details(self, obj):
-        return {
-            "summary":     obj.summary,
-            "performance": obj.performance,
-            "interior":    obj.interior,
-            "safety":      obj.safety,
-        }
+        return [{"category": f.category, "text": f.text} for f in obj.features.all()]
 
     def get_location(self, obj):
         if not (obj.location_name or obj.location_address):

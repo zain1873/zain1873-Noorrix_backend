@@ -59,7 +59,7 @@ class CarImageInline(admin.TabularInline):
 class CarFeatureInline(admin.TabularInline):
     model = CarFeature
     extra = 5
-    fields = ("text",)
+    fields = ("category", "text")
 
 
 @admin.register(Car)
@@ -184,7 +184,7 @@ class CarAdmin(admin.ModelAdmin):
             )
         }),
         ("Detail copy", {
-            "fields": ("description", "summary", "performance", "interior", "safety", "video_url")
+            "fields": ("description", "video_url")
         }),
         ("Location (leave blank for site default)", {
             "fields": ("location_name", "location_address"),
