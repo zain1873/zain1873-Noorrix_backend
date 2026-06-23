@@ -17,8 +17,8 @@ ADMIN_TEMPLATE = """
           <span style="color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:1px;">Noorrix Motors</span>
         </td></tr>
         <tr><td style="padding:32px 40px 8px;text-align:center;">
-          <h2 style="margin:0;color:#ac1c7a;font-size:22px;">New Testimonial Awaiting Approval</h2>
-          <p style="margin:8px 0 0;color:#888;font-size:14px;">A customer submitted a review on the website.</p>
+          <h2 style="margin:0;color:#ac1c7a;font-size:22px;">New Testimonial Received</h2>
+          <p style="margin:8px 0 0;color:#888;font-size:14px;">A customer submitted a review on the website — it's already live.</p>
         </td></tr>
         <tr><td style="padding:24px 40px;">
           <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
@@ -35,7 +35,7 @@ ADMIN_TEMPLATE = """
               <td style="padding:12px 16px;color:#222;font-size:14px;border-bottom:1px solid #eee;">{review}</td>
             </tr>
           </table>
-          <p style="margin-top:20px;color:#888;font-size:13px;">Approve it in the admin before it appears on the site.</p>
+          <p style="margin-top:20px;color:#888;font-size:13px;">You can hide it from the admin if needed (e.g. spam).</p>
         </td></tr>
         <tr><td style="background:#ac1c7a;padding:16px 40px;text-align:center;">
           <p style="margin:0;color:#ffffff;font-size:12px;">&copy; Noorrix Motors &mdash; This email was generated automatically.</p>

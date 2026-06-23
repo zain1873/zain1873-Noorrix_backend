@@ -8,7 +8,8 @@ from .serializers import TestimonialCreateSerializer, TestimonialSerializer
 
 
 class TestimonialListView(generics.ListAPIView):
-    """GET /api/testimonials/ — approved reviews only, for the public site."""
+    """GET /api/testimonials/ — visible reviews, for the public site.
+    Excludes any a staff member has manually hidden (e.g. spam)."""
 
     serializer_class   = TestimonialSerializer
     permission_classes = [AllowAny]
@@ -17,7 +18,7 @@ class TestimonialListView(generics.ListAPIView):
 
 class TestimonialCreateView(generics.CreateAPIView):
     """POST /api/testimonials/submit/ — anyone can submit a review.
-    It's held back (is_approved=False) until a staff member approves it."""
+    It appears on the site immediately; staff can hide it later if needed."""
 
     serializer_class   = TestimonialCreateSerializer
     permission_classes = [AllowAny]
@@ -30,6 +31,6 @@ class TestimonialCreateView(generics.CreateAPIView):
         send_admin_testimonial_notification(testimonial)
 
         return Response(
-            {"success": True, "message": "Thanks for your review! It'll appear once approved."},
+            {"success": True, "message": "Thanks for your review!"},
             status=status.HTTP_201_CREATED,
         )

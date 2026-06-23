@@ -15,7 +15,7 @@ class TestimonialCreateSerializer(serializers.ModelSerializer):
 
 
 class TestimonialSerializer(serializers.ModelSerializer):
-    """Public shape — only ever returned for approved testimonials."""
+    """Public shape — excludes any testimonial staff have hidden."""
 
     photo_url = serializers.SerializerMethodField()
 
