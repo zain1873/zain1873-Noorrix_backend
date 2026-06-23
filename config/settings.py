@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'apps.faq.apps.FaqConfig',
     'apps.cars.apps.CarsConfig',
     'apps.appointments.apps.AppointmentsConfig',
+    'apps.testimonials.apps.TestimonialsConfig',
 ]
 
 MIDDLEWARE = [
