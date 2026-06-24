@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.appointments.apps.AppointmentsConfig',
     'apps.testimonials.apps.TestimonialsConfig',
     'apps.newsletter.apps.NewsletterConfig',
+    'apps.part_exchange.apps.PartExchangeConfig',
 ]
 
 MIDDLEWARE = [
