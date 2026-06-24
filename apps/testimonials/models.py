@@ -24,3 +24,4 @@ class Testimonial(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.rating}★) — {'visible' if self.is_approved else 'hidden'}"
+ 
