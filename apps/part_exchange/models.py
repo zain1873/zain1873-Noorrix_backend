@@ -2,6 +2,15 @@ from django.db import models
 
 
 class PartExchangeRequest(models.Model):
+    STATUS_NEW = 'new'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_FULFILLED = 'fulfilled'
+    STATUS_CHOICES = [
+        (STATUS_NEW, 'New'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_FULFILLED, 'Fulfilled'),
+    ]
+
     name = models.CharField(max_length=120)
     phone = models.CharField(max_length=30)
     email = models.EmailField()
@@ -10,7 +19,7 @@ class PartExchangeRequest(models.Model):
     year = models.CharField(max_length=10)
     mileage = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
-    contacted = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW)
 
     class Meta:
         ordering = ["-created_at"]

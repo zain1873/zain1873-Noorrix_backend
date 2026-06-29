@@ -2,6 +2,15 @@ from django.db import models
 
 
 class VehicleSourcingRequest(models.Model):
+    STATUS_NEW = 'new'
+    STATUS_IN_PROGRESS = 'in_progress'
+    STATUS_FULFILLED = 'fulfilled'
+    STATUS_CHOICES = [
+        (STATUS_NEW, 'New'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
+        (STATUS_FULFILLED, 'Fulfilled'),
+    ]
+
     name = models.CharField(max_length=120)
     phone = models.CharField(max_length=30)
     email = models.EmailField()
@@ -12,7 +21,7 @@ class VehicleSourcingRequest(models.Model):
     budget = models.CharField(max_length=40)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    contacted = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_NEW)
 
     class Meta:
         ordering = ["-created_at"]
