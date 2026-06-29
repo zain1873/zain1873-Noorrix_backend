@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.testimonials.apps.TestimonialsConfig',
     'apps.newsletter.apps.NewsletterConfig',
     'apps.part_exchange.apps.PartExchangeConfig',
+    'apps.vehicle_sourcing.apps.VehicleSourcingConfig',
 ]
 
 MIDDLEWARE = [
