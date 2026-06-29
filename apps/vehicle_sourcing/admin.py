@@ -63,15 +63,12 @@ class VehicleSourcingRequestAdmin(admin.ModelAdmin):
     list_editable = ["status"]
     search_fields = ["name", "email", "phone", "make", "model"]
     readonly_fields = ["name", "phone", "email", "make", "model", "year", "mileage", "budget", "notes", "created_at"]
-    actions = ["mark_fulfilled_and_notify"]
 
-    @admin.action(description="Mark as fulfilled & notify customer")
-    def mark_fulfilled_and_notify(self, request, queryset):
-        for submission in queryset:
-            submission.status = VehicleSourcingRequest.STATUS_FULFILLED
-            submission.save(update_fields=["status"])
-            threading.Thread(target=self._send_customer_email, args=(submission,), daemon=True).start()
-        self.message_user(request, f"Marked {queryset.count()} request(s) as fulfilled and notified customers.")
+    def save_model(self, request, obj, form, change):
+        became_fulfilled = obj.status == VehicleSourcingRequest.STATUS_FULFILLED and "status" in form.changed_data
+        super().save_model(request, obj, form, change)
+        if became_fulfilled:
+            threading.Thread(target=self._send_customer_email, args=(obj,), daemon=True).start()
 
     def _send_customer_email(self, submission):
         html_body = CUSTOMER_EMAIL_TEMPLATE.format(
