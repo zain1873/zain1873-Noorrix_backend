@@ -34,6 +34,9 @@ CUSTOMER_EMAIL_TEMPLATE = """
                 We've found a match for the <strong>{make} {model}</strong> you asked us to source.
                 Our team will be in touch shortly with the details.
               </p>
+              <p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.6;">
+                Our team will call you within 24 hours.
+              </p>
               <p style="margin:0;color:#333;font-size:15px;line-height:1.6;">
                 If you have any questions in the meantime, just reply to this email.
               </p>
