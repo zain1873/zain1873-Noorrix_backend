@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'apps.newsletter.apps.NewsletterConfig',
     'apps.part_exchange.apps.PartExchangeConfig',
     'apps.vehicle_sourcing.apps.VehicleSourcingConfig',
+    'apps.delivery.apps.DeliveryConfig',
 ]
 
 MIDDLEWARE = [
