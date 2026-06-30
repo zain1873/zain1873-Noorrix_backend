@@ -3,7 +3,7 @@ import threading
 import resend
 from django.conf import settings
 from django.contrib import admin
-from .models import VehicleSourcingRequest
+from .models import DeliveryRequest
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +31,8 @@ CUSTOMER_EMAIL_TEMPLATE = """
             <td style="padding:32px 40px;">
               <h2 style="margin:0 0 16px;color:#ac1c7a;font-size:22px;">Good news, {name}!</h2>
               <p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.6;">
-                We've found a match for the <strong>{make} {model}</strong> you asked us to source.
-                Our team will be in touch shortly with the details.
+                Your delivery for the <strong>{vehicle}</strong> is confirmed.
+                Our team will be in touch shortly with the exact schedule.
               </p>
               <p style="margin:0 0 12px;color:#333;font-size:15px;line-height:1.6;">
                 Our team will call you within 24 hours.
@@ -59,16 +59,16 @@ CUSTOMER_EMAIL_TEMPLATE = """
 """
 
 
-@admin.register(VehicleSourcingRequest)
-class VehicleSourcingRequestAdmin(admin.ModelAdmin):
-    list_display = ["name", "phone", "email", "make", "model", "year", "budget", "created_at", "status"]
-    list_filter = ["status", "created_at", "budget"]
+@admin.register(DeliveryRequest)
+class DeliveryRequestAdmin(admin.ModelAdmin):
+    list_display = ["name", "phone", "email", "vehicle", "postcode", "preferred_date", "created_at", "status"]
+    list_filter = ["status", "created_at"]
     list_editable = ["status"]
-    search_fields = ["name", "email", "phone", "make", "model"]
-    readonly_fields = ["name", "phone", "email", "make", "model", "year", "mileage", "budget", "notes", "created_at"]
+    search_fields = ["name", "email", "phone", "vehicle", "postcode"]
+    readonly_fields = ["name", "phone", "email", "vehicle", "address", "postcode", "preferred_date", "notes", "created_at"]
 
     def save_model(self, request, obj, form, change):
-        became_fulfilled = obj.status == VehicleSourcingRequest.STATUS_FULFILLED and "status" in form.changed_data
+        became_fulfilled = obj.status == DeliveryRequest.STATUS_FULFILLED and "status" in form.changed_data
         super().save_model(request, obj, form, change)
         if became_fulfilled:
             threading.Thread(target=self._send_customer_email, args=(obj,), daemon=True).start()
@@ -76,17 +76,16 @@ class VehicleSourcingRequestAdmin(admin.ModelAdmin):
     def _send_customer_email(self, submission):
         html_body = CUSTOMER_EMAIL_TEMPLATE.format(
             name=submission.name,
-            make=submission.make,
-            model=submission.model,
+            vehicle=submission.vehicle,
         )
         try:
             resend.api_key = settings.RESEND_API_KEY
             resend.Emails.send({
                 "from": settings.DEFAULT_FROM_EMAIL,
                 "to": [submission.email],
-                "subject": "We've found a match for your vehicle search — Noorrix Motors",
+                "subject": "Your delivery is confirmed — Noorrix Motors",
                 "html": html_body,
             })
-            logger.info("Customer fulfilled-notification sent for vehicle sourcing request %s", submission.pk)
+            logger.info("Customer fulfilled-notification sent for delivery request %s", submission.pk)
         except Exception as exc:
-            logger.error("Customer email failed for vehicle sourcing request %s: %s", submission.pk, exc, exc_info=True)
+            logger.error("Customer email failed for delivery request %s: %s", submission.pk, exc, exc_info=True)
