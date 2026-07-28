@@ -120,6 +120,7 @@ class Command(BaseCommand):
         data = {
             "title": str(row["title"]).strip(),
             "subtitle": str(row["subtitle"]).strip(),
+            "reg": str(row.get("reg") or "").strip(),
             "make": str(row["make"]).strip(),
             "model": str(row["model"]).strip(),
             "engine": str(row.get("engine") or "").strip(),
