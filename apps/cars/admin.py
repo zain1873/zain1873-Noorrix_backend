@@ -98,10 +98,10 @@ class CarImageInline(admin.TabularInline):
 
 @admin.register(Car)
 class CarAdmin(admin.ModelAdmin):
-    list_display  = ("title", "subtitle", "make", "model", "year", "price", "mileage", "status")
+    list_display  = ("title", "subtitle", "make", "model", "year", "price", "mileage", "reg", "status")
     list_filter   = ("status", "make", "body_type", "fuel", "transmission", "colour")
     list_editable = ("status",)
-    search_fields = ("title", "subtitle", "make", "model")
+    search_fields = ("title", "subtitle", "make", "model", "reg")
     readonly_fields = ("created_at", "updated_at")
     inlines = (CarImageInline,)
     change_form_template = "admin/cars/car/change_form.html"
@@ -217,7 +217,7 @@ class CarAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ("Identity", {
-            "fields": ("title", "subtitle", "image", "status")
+            "fields": ("title", "subtitle", "reg", "image", "status")
         }),
         ("Gallery (bulk upload)", {
             "fields": ("gallery_images",),

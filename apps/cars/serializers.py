@@ -19,7 +19,7 @@ class CarListSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Car
         fields = (
-            "id", "title", "subtitle",
+            "id", "title", "subtitle", "reg",
             "make", "model", "body_type", "fuel", "transmission", "colour",
             "year", "engine_cc", "mileage", "price", "monthly", "mot_date",
             "image_url", "status", "is_favourite", "deposit_amount",

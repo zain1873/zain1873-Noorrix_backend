@@ -64,6 +64,10 @@ class Car(models.Model):
         max_length=255,
         help_text='Trim/spec line, e.g. "2.0 320d M Sport Saloon Auto Euro 6 4dr"',
     )
+    reg = models.CharField(
+        max_length=20, blank=True, default='',
+        help_text='Registration number, e.g. "AB15 CDE"',
+    )
 
     # ── Classification (drives the filters) ────────────────────
     make         = models.CharField(max_length=100, help_text='Brand, e.g. "BMW"')
