@@ -13,7 +13,10 @@ from .serializers import CarDetailSerializer, CarListSerializer
 
 # Static range options (kept server-side so the front-end and /filters agree).
 PRICE_RANGES = [
-    {"label": "Under £10,000",      "min": 0,     "max": 10000},
+    {"label": "Under £1,500",       "min": 0,     "max": 1500},
+    {"label": "£1,500 – £3,000",    "min": 1500,  "max": 3000},
+    {"label": "£3,000 – £5,000",    "min": 3000,  "max": 5000},
+    {"label": "£5,000 – £10,000",   "min": 5000,  "max": 10000},
     {"label": "£10,000 – £15,000",  "min": 10000, "max": 15000},
     {"label": "£15,000 – £20,000",  "min": 15000, "max": 20000},
     {"label": "£20,000 – £30,000",  "min": 20000, "max": 30000},
@@ -25,6 +28,10 @@ MILEAGE_RANGES = [
     {"label": "50,000 – 100,000",    "min": 50000,  "max": 100000},
     {"label": "100,000+",            "min": 100000, "max": None},
 ]
+
+# Statuses the shopper can filter by. "reserved" is deliberately absent: those
+# cars stay visible in the unfiltered list but aren't a browsing category.
+FILTERABLE_STATUSES = [CarStatus.AVAILABLE, CarStatus.SOLD]
 
 
 def _resolve_make(brand_slug):
@@ -40,8 +47,9 @@ class CarListView(generics.ListAPIView):
 
     Reserved/sold cars are included so their detail/checkout links keep working
     and the front-end shows a "Reserved"/"Sold" badge instead of hiding them.
-    Optional ``?make=BMW`` (exact) or ``?brand=bmw`` (slug) for the brand page.
-    All other filtering happens client-side on this list.
+    Optional ``?make=BMW`` (exact) or ``?brand=bmw`` (slug) for the brand page,
+    and ``?status=available`` / ``?status=sold`` (exact match; reserved cars fall
+    into neither). All other filtering happens client-side on this list.
     """
 
     serializer_class   = CarListSerializer
@@ -58,6 +66,11 @@ class CarListView(generics.ListAPIView):
         if brand:
             resolved = _resolve_make(brand)
             qs = qs.filter(make=resolved) if resolved else qs.none()
+
+        car_status = self.request.query_params.get("status")
+        if car_status:
+            wanted = car_status.strip().lower()
+            qs = qs.filter(status=wanted) if wanted in FILTERABLE_STATUSES else qs.none()
 
         return qs
 
@@ -95,7 +108,8 @@ class FiltersView(APIView):
     Make/Model/body/fuel/transmission/colour are derived from every car
     (not just "available" ones) so a make/model doesn't vanish from the
     dropdowns just because its only car got reserved/sold — same reasoning
-    as why CarListView no longer filters by status. Price/mileage ranges
+    as why CarListView no longer filters by status. "statuses" lists only the
+    filterable statuses actually present in stock. Price/mileage ranges
     are static.
     """
 
@@ -114,6 +128,8 @@ class FiltersView(APIView):
             values = cars.order_by().values_list(field, flat=True).distinct()
             return sorted(v for v in values if v)
 
+        present = set(cars.order_by().values_list("status", flat=True).distinct())
+
         return Response({
             "makes":         sorted(make_models.keys()),
             "makeModels":    {m: sorted(models) for m, models in sorted(make_models.items())},
@@ -121,6 +137,7 @@ class FiltersView(APIView):
             "fuelTypes":     distinct("fuel"),
             "transmissions": distinct("transmission"),
             "colours":       distinct("colour"),
+            "statuses":      [s.value for s in FILTERABLE_STATUSES if s in present],
             "priceRanges":   PRICE_RANGES,
             "mileageRanges": MILEAGE_RANGES,
         })
