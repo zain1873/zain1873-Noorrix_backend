@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     'corsheaders',
+    'apps.core.apps.CoreConfig',
     'apps.auth.apps.AuthConfig',
     'apps.contact.apps.ContactConfig',
     'apps.payments.apps.PaymentsConfig',
@@ -161,9 +162,46 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Uploads live on Cloudflare R2 once USE_R2 is on; until then they stay on the
+# Railway volume mounted at MEDIA_ROOT. Flipping this flag is the whole
+# migration switch -- and the whole rollback.
+USE_R2 = config('USE_R2', default=False, cast=bool)
+
+# Django 5.1 removed STATICFILES_STORAGE/DEFAULT_FILE_STORAGE; both backends
+# are declared here instead.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+if USE_R2:
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': config('R2_BUCKET_NAME'),
+            'endpoint_url': config('R2_ENDPOINT_URL'),
+            'access_key': config('R2_ACCESS_KEY_ID'),
+            'secret_key': config('R2_SECRET_ACCESS_KEY'),
+            'region_name': 'auto',
+            'signature_version': 's3v4',
+            # Serve through the bucket's public hostname, unsigned, so image
+            # URLs stay stable and cacheable.
+            'custom_domain': config('R2_PUBLIC_URL').split('://')[-1].rstrip('/'),
+            'querystring_auth': False,
+            # R2 has no ACLs, and FileSystemStorage suffixes clashing names
+            # rather than overwriting -- keep that behaviour.
+            'default_acl': None,
+            'file_overwrite': False,
+        },
+    }
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGGING = {
