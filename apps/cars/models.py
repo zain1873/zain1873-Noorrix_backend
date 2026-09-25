@@ -119,6 +119,14 @@ class Car(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        # One per filter/sort field used by GET /api/cars/.
+        indexes = [
+            models.Index(fields=[field], name=f"car_{field}_idx")
+            for field in (
+                "make", "model", "body_type", "fuel", "transmission", "colour",
+                "status", "price", "mileage", "year", "created_at",
+            )
+        ]
 
     def __str__(self):
         return f"{self.title} — {self.subtitle} (#{self.pk})"
