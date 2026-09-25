@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Car, CarStatus, Favourite
+from .pagination import OptionalPagePagination
 from .serializers import CarDetailSerializer, CarListSerializer
 
 # Static range options (kept server-side so the front-end and /filters agree).
@@ -34,45 +35,82 @@ MILEAGE_RANGES = [
 FILTERABLE_STATUSES = [CarStatus.AVAILABLE, CarStatus.SOLD]
 
 
-def _resolve_make(brand_slug):
-    """Map a brand slug (e.g. 'mercedes-benz') back to its stored make name."""
-    for make in Car.objects.order_by().values_list("make", flat=True).distinct():
-        if slugify(make) == brand_slug:
-            return make
-    return None
+EXACT_FILTERS = ("model", "body_type", "fuel", "transmission", "colour")
+RANGE_FILTERS = ("price", "mileage")
+ORDERINGS     = ("price", "-price", "mileage", "-mileage", "year", "-year", "-created_at")
+DEFAULT_ORDERING = "-created_at"
+
+
+def _makes_for_brand(brand_slug):
+    """Stored make names whose slug starts with the brand slug at a word
+    boundary: 'mini' → 'MINI' and 'MINI Hatch', but not 'Minix'."""
+    brand_slug = slugify(brand_slug)
+    makes = Car.objects.order_by().values_list("make", flat=True).distinct()
+    return [
+        make for make in makes
+        if slugify(make) == brand_slug or slugify(make).startswith(brand_slug + "-")
+    ]
 
 
 class CarListView(generics.ListAPIView):
-    """GET /api/cars/ — all stock (available, reserved, sold) as a plain array.
+    """GET /api/cars/ — all stock (available, reserved, sold).
 
     Reserved/sold cars are included so their detail/checkout links keep working
     and the front-end shows a "Reserved"/"Sold" badge instead of hiding them.
-    Optional ``?make=BMW`` (exact) or ``?brand=bmw`` (slug) for the brand page,
-    and ``?status=available`` / ``?status=sold`` (exact match; reserved cars fall
-    into neither). All other filtering happens client-side on this list.
+
+    Without ``?page=`` the response is the plain array it has always been; with
+    it, see ``OptionalPagePagination``. Filters (all optional, combinable, and
+    applied before paginating):
+
+    - ``make`` (case-insensitive exact), ``model``, ``body_type``, ``fuel``,
+      ``transmission``, ``colour`` (exact)
+    - ``status=available`` / ``status=sold`` (reserved cars fall into neither)
+    - ``price_min``/``price_max``, ``mileage_min``/``mileage_max`` (inclusive;
+      non-numeric values are ignored)
+    - ``brand`` (slug prefix on make, for the brand page)
+
+    ``?ordering=`` is one of ``ORDERINGS`` (default newest first); ``id`` is
+    always the final tiebreaker so a car can't land on two pages.
     """
 
     serializer_class   = CarListSerializer
     permission_classes = [AllowAny]
+    pagination_class   = OptionalPagePagination
 
     def get_queryset(self):
+        params = self.request.query_params
         qs = Car.objects.all()
 
-        make = self.request.query_params.get("make")
+        make = params.get("make")
         if make:
             qs = qs.filter(make__iexact=make)
 
-        brand = self.request.query_params.get("brand")
-        if brand:
-            resolved = _resolve_make(brand)
-            qs = qs.filter(make=resolved) if resolved else qs.none()
+        for field in EXACT_FILTERS:
+            value = params.get(field)
+            if value:
+                qs = qs.filter(**{field: value})
 
-        car_status = self.request.query_params.get("status")
+        for field in RANGE_FILTERS:
+            for suffix, lookup in (("min", "gte"), ("max", "lte")):
+                try:
+                    bound = int(params.get(f"{field}_{suffix}", ""))
+                except ValueError:
+                    continue
+                qs = qs.filter(**{f"{field}__{lookup}": bound})
+
+        brand = params.get("brand")
+        if brand:
+            qs = qs.filter(make__in=_makes_for_brand(brand))
+
+        car_status = params.get("status")
         if car_status:
             wanted = car_status.strip().lower()
             qs = qs.filter(status=wanted) if wanted in FILTERABLE_STATUSES else qs.none()
 
-        return qs
+        ordering = params.get("ordering")
+        if ordering not in ORDERINGS:
+            ordering = DEFAULT_ORDERING
+        return qs.order_by(ordering, "id")
 
 
 class CarDetailView(generics.RetrieveAPIView):
